@@ -199,3 +199,23 @@ func Test_tagEntries_isrc(t *testing.T) {
 		}
 	}
 }
+
+// Test_metadataValue checks that a flag, such as audio:compilation, is a
+// bool, and that other tags, and a flag which isn't one, are strings
+func Test_metadataValue(t *testing.T) {
+	tests := []struct {
+		e    entry
+		want any
+	}{
+		{entry{AudioNamespace, "compilation", "1"}, true},
+		{entry{AudioNamespace, "compilation", "0"}, false},
+		{entry{AudioNamespace, "compilation", "true"}, true},
+		{entry{AudioNamespace, "compilation", "yes"}, "yes"},
+		{entry{AudioNamespace, "track", "1"}, "1"},
+	}
+	for _, test := range tests {
+		if got := test.e.metadataValue(); got != test.want {
+			t.Errorf("%v: got %#v, want %#v", test.e, got, test.want)
+		}
+	}
+}

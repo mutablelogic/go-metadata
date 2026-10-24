@@ -13,6 +13,7 @@ import (
 	"mime"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 
 	// Packages
@@ -64,6 +65,10 @@ var (
 		".m4a":  "audio/mp4",
 		".flac": "audio/flac",
 	}
+
+	// flagKeys are the keys of the tags of audio which are flags, which are
+	// true or false
+	flagKeys = map[string]bool{"compilation": true}
 
 	// reISRC matches an International Standard Recording Code, which is a
 	// country, a registrant, a year and a number, such as GBAYE0601498
@@ -118,7 +123,7 @@ func init() {
 		}
 		var result []metadata.Metadata
 		for _, e := range entries {
-			if m := meta.New(e.ns, e.key, e.value); m != nil {
+			if m := meta.New(e.ns, e.key, e.metadataValue()); m != nil {
 				result = append(result, m)
 			}
 		}
@@ -173,6 +178,18 @@ func tagEntries(tags []gomedia.Metadata) []entry {
 		}
 	}
 	return result
+}
+
+// metadataValue returns the value of a tag as metadata, which is a bool for
+// a flag, such as audio:compilation, which is 1 or 0, or true or false, and
+// otherwise the value of the tag
+func (e entry) metadataValue() any {
+	if e.ns == AudioNamespace && flagKeys[e.key] {
+		if flag, err := strconv.ParseBool(e.value); err == nil {
+			return flag
+		}
+	}
+	return e.value
 }
 
 // normalizeISRC returns an ISRC without the hyphens or spaces it's often
