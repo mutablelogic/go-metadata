@@ -74,10 +74,11 @@ jobs:
 
       # go-media's installed libraries, for its version, which are only
       # built when they aren't cached, as its Makefile builds them again
-      # whenever it's run
-      - name: Cache go-media's libraries
+      # whenever it's run. They're saved once they're built, rather than at
+      # the end of the job, which only saves them when the tests pass.
+      - name: Restore go-media's libraries
         id: cache
-        uses: actions/cache@v6
+        uses: actions/cache/restore@v6
         with:
           path: go-media/build/install
           key: ${{ runner.os }}-${{ runner.arch }}-go-media-${{ steps.gomedia.outputs.version }}-libraries
@@ -95,6 +96,13 @@ jobs:
       - name: Build go-media's libraries
         if: steps.cache.outputs.cache-hit != 'true'
         run: make -C go-media ffmpeg chromaprint libexif libraw libheif
+
+      - name: Save go-media's libraries
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: go-media/build/install
+          key: ${{ steps.cache.outputs.cache-primary-key }}
 
       - name: Report the libraries
         working-directory: go-metadata

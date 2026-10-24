@@ -47,6 +47,18 @@ var extensionContentTypes = map[string]extensionRule{
 	".jpeg": {ContentType: "image/jpeg"},
 	".tga":  {ContentType: "image/x-tga", Preferred: true},
 
+	// HEIF images, and MPEG transport streams, which aren't sniffed, and
+	// whose types differ on each platform, such as image/heif for .heic, and
+	// Qt's translations for .ts on Linux. TypeScript, which is also .ts, is
+	// text, so it's refined by its extension (see AddTextExtensionType).
+	".heic":  {ContentType: "image/heic", Preferred: true},
+	".heics": {ContentType: "image/heic-sequence", Preferred: true},
+	".heif":  {ContentType: "image/heif", Preferred: true},
+	".heifs": {ContentType: "image/heif-sequence", Preferred: true},
+	".ts":    {ContentType: "video/mp2t", Preferred: true},
+	".m2ts":  {ContentType: "video/mp2t"},
+	".mts":   {ContentType: "video/mp2t"},
+
 	// Ogg, which is sniffed as application/ogg, is refined by its extension,
 	// as audio, such as Opus voice notes, or video
 	".ogg":  {ContentType: "audio/ogg", Preferred: true},
