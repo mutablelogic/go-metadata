@@ -1,0 +1,19 @@
+BEGIN:VCARD
+VERSION:4.0
+UID;VALUE=text:people/c2202937964474309450
+FN:Katherine Lamarr
+N:Lamarr;Katherine;;;
+EMAIL;TYPE=home:katherine.lamarr1@example.com
+EMAIL:katherine.lamarr2@example.com
+EMAIL:katherine.lamarr3@example.com
+TEL;TYPE=mobile:+44 20 7946 0378
+TEL;TYPE=home:+44 20 7946 0937
+TEL;TYPE=mobile:+44 20 7946 0618
+ADR;TYPE=home:;;22 Fictional Road;;;EX1 1AA;
+ADR;TYPE=home:;;3 Sample Lane;;;EX1 1AA;United Kingdom
+BDAY:--1001
+NOTE:A note about this contact.
+PHOTO:data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAA
+ AE0lEQVR4nGOodNoLRAyfFNmACAAn5QUjqslVogAAAABJRU5ErkJggg==
+REV:20261021T084132Z
+END:VCARD

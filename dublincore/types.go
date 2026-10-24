@@ -28,6 +28,7 @@ const (
 	KindAudio        = "audio"        // Audio, such as music or a podcast
 	KindBook         = "book"         // A book, such as an EPUB or Kindle book
 	KindCode         = "code"         // Source code
+	KindContact      = "contact"      // A contact, such as a person in an address book
 	KindData         = "data"         // Structured data, such as JSON or YAML
 	KindDocument     = "document"     // A document, such as a PDF or Word document, or plain text
 	KindForm         = "form"         // A form, which is filled in
@@ -35,6 +36,7 @@ const (
 	KindPresentation = "presentation" // A presentation of slides
 	KindSoftware     = "software"     // Software, such as an application or a library
 	KindSpreadsheet  = "spreadsheet"  // A spreadsheet
+	KindSubtitles    = "subtitles"    // Subtitles of a video, such as a SubRip file
 	KindVideo        = "video"        // A video
 	KindWebPage      = "webpage"      // A web page
 )
@@ -45,6 +47,7 @@ var kindTypes = map[string]string{
 	KindAudio:        TypeSound,
 	KindBook:         TypeText,
 	KindCode:         TypeSoftware,
+	KindContact:      TypeText,
 	KindData:         TypeDataset,
 	KindDocument:     TypeText,
 	KindForm:         TypeInteractiveResource,
@@ -52,6 +55,7 @@ var kindTypes = map[string]string{
 	KindPresentation: TypeText,
 	KindSoftware:     TypeSoftware,
 	KindSpreadsheet:  TypeDataset,
+	KindSubtitles:    TypeText,
 	KindVideo:        TypeMovingImage,
 	KindWebPage:      TypeText,
 }

@@ -1,0 +1,15 @@
+BEGIN:VCARD
+VERSION:4.0
+UID;VALUE=text:people/c8399589116837456607
+FN:Alan Lamarr
+N:Lamarr;Alan;;;
+EMAIL;TYPE=home:alan.lamarr1@example.com
+TEL;TYPE=mobile:+44 20 7946 0782
+ADR;TYPE=home:;;1 Example Street;Sampleford;;EX1 1AA;
+ORG:Analytical Engines Ltd;Research
+TITLE:Analyst
+NOTE:A note about this contact.
+PHOTO:data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAA
+ AE0lEQVR4nGNwUWgCIgabv8+ACAAf9QYLf02X9wAAAABJRU5ErkJggg==
+REV:20261021T084132Z
+END:VCARD

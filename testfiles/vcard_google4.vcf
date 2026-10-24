@@ -1,0 +1,13 @@
+BEGIN:VCARD
+VERSION:4.0
+UID;VALUE=text:people/c7652051833888511687
+FN:Katherine Dijkstra
+N:Dijkstra;Katherine;;;
+EMAIL;TYPE=home:katherine.dijkstra1@example.com
+EMAIL;TYPE=other:katherine.dijkstra2@example.com
+URL;TYPE=profile:https://example.org/katherine1
+ORG:Fictional Foundry;Research
+PHOTO:data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAA
+ AE0lEQVR4nGOomG0CRAynvvoDEQAqwQarzGggZwAAAABJRU5ErkJggg==
+REV:20261020T084321Z
+END:VCARD
