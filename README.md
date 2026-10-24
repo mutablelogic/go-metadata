@@ -28,12 +28,18 @@ libraries, through cgo:
 | EXIF metadata of photos (`image/exif`) | libexif |
 | HEIF and AVIF images (`image/heif`) | libheif |
 | Camera RAW images (`image/raw`) | LibRaw |
+| Fingerprints of audio, to look it up on AcoustID (`pkg/chromaprint`) | Chromaprint, which is optional |
 
 FFmpeg needs to be FFmpeg 8, which go-media's bindings are for: FFmpeg 9 removed parts of its
 API which they use. These are only built with cgo. Without it, which is `CGO_ENABLED=0`, or when there's no C
 compiler, go-metadata builds without them. It still reads everything else, but returns no
 metadata or artwork from audio and video files, no EXIF metadata from photos, and nothing from
 HEIF and RAW images other than their type and kind.
+
+Chromaprint is only built with the `chromaprint` build tag, which the Makefile sets when it finds
+it. Without it, audio is only looked up on AcoustID by the AcoustID identifier in its tags.
+Homebrew's `chromaprint` is built with FFmpeg 9, so to fingerprint audio on macOS, build
+go-media's libraries, and set `GO_MEDIA_PREFIX` (see below).
 
 The C libraries are found with `pkg-config`, so to build with cgo, install them, their
 development headers and `pkg-config`:
@@ -75,7 +81,9 @@ Many Linux distributions ship a version of FFmpeg other than 8. If yours does,
 bindings, can build FFmpeg 8 and the other libraries from source, as static libraries: run
 `make` in a clone of it, and then build go-metadata with `make GO_MEDIA_PREFIX=<go-media>/build/install`,
 or with `go` itself, with `PKG_CONFIG_PATH` set to its `build/install/lib/pkgconfig` folder,
-`CGO_LDFLAGS_ALLOW="-(W|D).*"` and `CGO_LDFLAGS="-lstdc++"`.
+`CGO_LDFLAGS_ALLOW="-(W|D).*"` and `CGO_LDFLAGS="-lstdc++"`, and `-tags chromaprint` to
+fingerprint audio. `make ffmpeg chromaprint libexif libraw libheif` in go-media builds the
+libraries which go-metadata uses.
 
 **Windows** (with [MSYS2](https://www.msys2.org/), in its UCRT64 environment, which provides
 the C compiler too):
@@ -155,8 +163,11 @@ metadata --artwork --dpi 300 scan.pdf
 
 The password of an encrypted document is `--password`, or the `METADATA_PASSWORD` environment
 variable. To look up the movie or TV episode which a video is on TMDB, set `--tmdb-key`, or the
-`TMDB_TOKEN` environment variable, to your TMDB API Read Access Token. `metadata --help` lists
-every flag.
+`TMDB_TOKEN` environment variable, to your TMDB API Read Access Token. To look up the
+MusicBrainz recording and artists of audio on AcoustID, set `--acoustid-key`, or the
+`CHROMAPRINT_KEY` environment variable, to the API key of an application which is
+[registered with AcoustID](https://acoustid.org/new-application). `metadata --help` lists every
+flag.
 
 ## Using the library
 
@@ -218,6 +229,7 @@ Options change what's extracted:
 | `WithContentType(type)` | The content type, rather than detecting it |
 | `WithMaxSize(bytes)` | The largest input which is read |
 | `WithTMDB(client)` | Look up videos on TMDB, with a client from `pkg/tmdb` |
+| `WithAcoustID(client)` | Look up audio on AcoustID, with a client from `pkg/acoustid` |
 | `WithTracer(tracer)` | Trace extraction with OpenTelemetry |
 
 A handler of another type of file is a function which is registered with `AddHandler`, for a
@@ -230,7 +242,7 @@ text.
 The formats which go-metadata reads are also packages of their own, in `pkg/`, which can be
 used without it, such as `pkg/eml` for email messages, `pkg/mbox` for mailboxes, `pkg/ical` and
 `pkg/vcard` for calendars and contacts, `pkg/rtf`, `pkg/postscript`, `pkg/iwork`, `pkg/exif`,
-`pkg/xmp` and `pkg/tmdb`.
+`pkg/xmp`, `pkg/tmdb`, `pkg/acoustid` and `pkg/chromaprint`.
 
 ## License
 
@@ -249,8 +261,8 @@ module with its version.
 
 | Module | Used for | Licence |
 | --- | --- | --- |
-| [`github.com/mutablelogic/go-media`](https://github.com/mutablelogic/go-media) | The C bindings of FFmpeg, libexif, libheif and LibRaw | Apache 2.0 |
-| [`github.com/mutablelogic/go-client`](https://github.com/mutablelogic/go-client) | The TMDB client | Apache 2.0 |
+| [`github.com/mutablelogic/go-media`](https://github.com/mutablelogic/go-media) | The C bindings of FFmpeg, libexif, libheif, LibRaw and Chromaprint | Apache 2.0 |
+| [`github.com/mutablelogic/go-client`](https://github.com/mutablelogic/go-client) | The TMDB and AcoustID clients | Apache 2.0 |
 | [`github.com/mutablelogic/go-server`](https://github.com/mutablelogic/go-server) | Errors and types | Apache 2.0 |
 | [`github.com/mutablelogic/go-tokenizer`](https://github.com/mutablelogic/go-tokenizer) | Markdown documents | Apache 2.0 |
 | [`github.com/pdfcpu/pdfcpu`](https://github.com/pdfcpu/pdfcpu) | The properties of PDF documents, and the thumbnails stored in them | Apache 2.0 |

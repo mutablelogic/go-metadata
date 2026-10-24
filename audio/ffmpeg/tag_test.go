@@ -3,7 +3,9 @@
 package ffmpeg
 
 import (
+	"fmt"
 	"image"
+	"reflect"
 	"testing"
 
 	// Packages
@@ -74,6 +76,26 @@ func Test_sanitizeKey_musicbrainz(t *testing.T) {
 	}
 }
 
+// Test_sanitizeKey_acoustid checks that AcoustID's tags, as they're spelled
+// in FLAC, MP3 and MP4 files, are mapped onto the acoustid namespace, and
+// that the fingerprint is dropped
+func Test_sanitizeKey_acoustid(t *testing.T) {
+	tests := []struct {
+		in, want string
+	}{
+		{"Acoustid Id", "acoustid:id"},
+		{"ACOUSTID_ID", "acoustid:id"},
+		{"acoustid_id", "acoustid:id"},
+		{"Acoustid Fingerprint", ""},
+		{"ACOUSTID_FINGERPRINT", ""},
+	}
+	for _, test := range tests {
+		if got := sanitizeKey(test.in); got != test.want {
+			t.Errorf("sanitizeKey(%q) = %q, want %q", test.in, got, test.want)
+		}
+	}
+}
+
 // Test_sanitizeKey_001 checks that noisy/uninteresting tags are dropped.
 func Test_sanitizeKey_001(t *testing.T) {
 	noise := []string{
@@ -104,7 +126,7 @@ func entryMap(tags ...tag) map[string]string {
 	}
 	result := map[string]string{}
 	for _, e := range tagEntries(in) {
-		result[e.ns+":"+e.key] = e.value
+		result[e.ns+":"+e.key] = fmt.Sprint(e.value)
 	}
 	return result
 }
@@ -176,6 +198,98 @@ func Test_tagEntries_isrc(t *testing.T) {
 		got := entryMap(test.tag)
 		if got[test.key] != test.want || len(got) != 1 {
 			t.Errorf("%v: expected %s %q, got %v", test.tag, test.key, test.want, got)
+		}
+	}
+}
+
+// Test_tagValues checks that tags are flags, numbers, counts, dates, lists
+// and ISRCs, and otherwise as they are
+func Test_tagValues(t *testing.T) {
+	for _, test := range []struct {
+		key, value string
+		want       []entry
+	}{
+		{"audio:compilation", "1", []entry{{"audio", "compilation", true}}},
+		{"audio:compilation", "0", []entry{{"audio", "compilation", false}}},
+		{"audio:compilation", "yes", []entry{{"audio", "compilation", "yes"}}},
+		{"audio:bpm", "104", []entry{{"audio", "bpm", 104}}},
+		{"audio:track", "4/12", []entry{{"audio", "track", 4}, {"audio", "tracks", 12}}},
+		{"audio:track", "4", []entry{{"audio", "track", 4}}},
+		{"audio:track", "A1", []entry{{"audio", "track", "A1"}}},
+		{"audio:disc", "1 / 2", []entry{{"audio", "disc", 1}, {"audio", "discs", 2}}},
+		{"audio:year", "2005", []entry{{"audio", "year", 2005}}},
+		{"audio:year", "1992-09-23", []entry{{"audio", "year", 1992}, {"dc", "date", "1992-09-23"}}},
+		{"audio:year", "1992-09", []entry{{"audio", "year", 1992}, {"dc", "date", "1992-09"}}},
+		{"audio:year", "2009-07-27T20:53:38Z", []entry{{"audio", "year", 2009}, {"dc", "date", "2009-07-27"}}},
+		{"audio:year", "circa 1920", []entry{{"audio", "year", "circa 1920"}}},
+		{"musicbrainz:artist-id", "a/b", []entry{{"musicbrainz", "artist-id", "a"}, {"musicbrainz", "artist-id", "b"}}},
+		{"musicbrainz:artist-id", "a; b", []entry{{"musicbrainz", "artist-id", "a"}, {"musicbrainz", "artist-id", "b"}}},
+		{"audio:isrc", "GBBLK0500180/USWB10002196", []entry{{"dc", "identifier", "GBBLK0500180"}, {"dc", "identifier", "USWB10002196"}}},
+		{"audio:isrc", "GBBLK0500180/bad", []entry{{"dc", "identifier", "GBBLK0500180"}, {"audio", "isrc", "bad"}}},
+		{"audio:genre", "Hip Hop/Rap", []entry{{"audio", "genre", "Hip Hop/Rap"}}},
+	} {
+		if got := tagValues(test.key, test.value); !reflect.DeepEqual(got, test.want) {
+			t.Errorf("%s=%q: got %v, want %v", test.key, test.value, got, test.want)
+		}
+	}
+}
+
+// Test_tagEntries_001 checks that a tag's values of a key are all kept, but
+// a key from an earlier tag isn't replaced by a later one
+func Test_tagEntries_001(t *testing.T) {
+	in := []gomedia.Metadata{
+		tag{"MusicBrainz Artist Id", "a/b"},
+		tag{"track", "4/12"},
+		tag{"TRACKTOTAL", "13"},
+		tag{"date", "1992-09-23"},
+		tag{"originaldate", "1990"},
+	}
+	var got []string
+	for _, e := range tagEntries(in) {
+		got = append(got, fmt.Sprint(e.ns, ":", e.key, "=", e.value))
+	}
+	want := []string{"musicbrainz:artist-id=a", "musicbrainz:artist-id=b", "audio:track=4", "audio:tracks=12", "audio:year=1992", "dc:date=1992-09-23"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+
+	// A year, and then a date, which is a later tag of the same key, doesn't
+	// mix the year of one with the date of the other
+	got = nil
+	for _, e := range tagEntries([]gomedia.Metadata{tag{"date", "1992"}, tag{"originaldate", "1990-01-01"}}) {
+		got = append(got, fmt.Sprint(e.ns, ":", e.key, "=", e.value))
+	}
+	if want := []string{"audio:year=1992"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+// Test_sanitizeKey_002 checks that binary, repeated and meaningless tags are
+// dropped, and that ID3's disc, disc subtitle, remixer and BPM frames are
+// named
+func Test_sanitizeKey_002(t *testing.T) {
+	for in, want := range map[string]string{
+		"id3v2_priv.WM/MediaClassPrimaryID":         "",
+		"id3v2_priv.PeakValue":                      "",
+		"UFIDhttp://www.cddb.com/id3/taginfo1.html": "",
+		"TLEN":            "",
+		"length":          "",
+		"encoding_params": "",
+		"iTunPGAP":        "",
+		"rating":          "",
+		"TFLT":            "",
+		"XXX":             "",
+		"TPA":             "audio:disc",
+		"TPOS":            "audio:disc",
+		"disc":            "audio:disc",
+		"TSST":            "audio:discsubtitle",
+		"TPE4":            "audio:remixer",
+		"TBPM":            "audio:bpm",
+		"TRACKTOTAL":      "audio:tracks",
+		"DISCTOTAL":       "audio:discs",
+	} {
+		if got := sanitizeKey(in); got != want {
+			t.Errorf("sanitizeKey(%q) = %q, want %q", in, got, want)
 		}
 	}
 }

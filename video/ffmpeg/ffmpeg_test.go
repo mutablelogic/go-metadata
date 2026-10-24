@@ -44,7 +44,7 @@ func Test_ffmpeg_000(t *testing.T) {
 		"video:width":       "1280",
 		"video:height":      "720",
 		"audio:codec":       "aac",
-		"audio:sample_rate": "48000",
+		"audio:sample-rate": "48000",
 		"audio:channels":    "6",
 		"metadata:kind":     "video",
 		"dc:type":           "MovingImage",

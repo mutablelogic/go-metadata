@@ -27,6 +27,7 @@ import (
 	term "github.com/charmbracelet/x/term"
 	metadata "github.com/mutablelogic/go-metadata"
 	byterange "github.com/mutablelogic/go-metadata/internal/byterange"
+	acoustid "github.com/mutablelogic/go-metadata/pkg/acoustid"
 	tmdb "github.com/mutablelogic/go-metadata/pkg/tmdb"
 	xmp "github.com/mutablelogic/go-metadata/pkg/xmp"
 
@@ -43,24 +44,29 @@ import (
 // TYPES
 
 type CLI struct {
-	Type      bool     `name:"type" xor:"type,type-xmp" help:"Print the content type only, rather than the metadata."`
-	JSON      bool     `name:"json" xor:"artwork-json,json-xmp" help:"Print as JSON, rather than as a table."`
-	XMP       bool     `name:"xmp" xor:"type-xmp,json-xmp,markdown-xmp,artwork-xmp" help:"Print the metadata of each file as an XMP document, as a sidecar is, which describes the file by its path, rather than as a table. Artwork and Markdown aren't included."`
-	Markdown  bool     `name:"markdown" xor:"type,ns,artwork-markdown,markdown-xmp" help:"Print the content of each file as Markdown, rather than its metadata."`
-	Artwork   bool     `name:"artwork" xor:"type,ns,artwork-markdown,artwork-json,artwork-xmp" help:"Save the artwork of the files, such as the images of the pages of a PDF document, as images in the current directory, such as page0001.png, rather than printing their metadata. Saving stops at an image which already exists, such as the first page of the next file."`
-	Force     bool     `name:"force" help:"With --artwork, overwrite images which already exist, and carry on."`
-	DPI       int      `name:"dpi" help:"The resolution of the images of pages, such as the artwork of scanned pages, which are downscaled to it. By default, it's 150 dpi, and at most 1024 pixels wide or high; when it's set, it's the resolution however large, such as 300 dpi, the usual resolution for OCR."`
-	Namespace []string `name:"ns" xor:"ns" help:"Print only the metadata in these namespaces." sep:","`
-	Password  string   `name:"password" env:"METADATA_PASSWORD" help:"The password of encrypted documents, such as PDF documents which need a password to be opened. Set it in the environment, rather than as a flag, to keep it out of the shell's history."`
-	TMDBKey   string   `name:"tmdb-key" env:"TMDB_TOKEN" help:"The API Read Access Token of TMDB, with which videos are looked up on TMDB, from their names. Set it in the environment, rather than as a flag, to keep it out of the shell's history."`
-	Range     string   `name:"range" placeholder:"FROM:TO" help:"With --markdown, print only the bytes of the Markdown from:to, such as 0:4096, and then 4096:8192, or from:, :to, or : for all of it. By default, it's all of it."`
-	Path      string   `arg:"" name:"path" help:"File, directory, or glob pattern such as 'photos/**/*.jpg' (quoted, so the shell doesn't expand it), of the files to read."`
+	Type        bool     `name:"type" xor:"type,type-xmp" help:"Print the content type only, rather than the metadata."`
+	JSON        bool     `name:"json" xor:"artwork-json,json-xmp" help:"Print as JSON, rather than as a table."`
+	XMP         bool     `name:"xmp" xor:"type-xmp,json-xmp,markdown-xmp,artwork-xmp" help:"Print the metadata of each file as an XMP document, as a sidecar is, which describes the file by its path, rather than as a table. Artwork and Markdown aren't included."`
+	Markdown    bool     `name:"markdown" xor:"type,ns,artwork-markdown,markdown-xmp" help:"Print the content of each file as Markdown, rather than its metadata."`
+	Artwork     bool     `name:"artwork" xor:"type,ns,artwork-markdown,artwork-json,artwork-xmp" help:"Save the artwork of the files, such as the images of the pages of a PDF document, as images in the current directory, such as page0001.png, rather than printing their metadata. Saving stops at an image which already exists, such as the first page of the next file."`
+	Force       bool     `name:"force" help:"With --artwork, overwrite images which already exist, and carry on."`
+	DPI         int      `name:"dpi" help:"The resolution of the images of pages, such as the artwork of scanned pages, which are downscaled to it. By default, it's 150 dpi, and at most 1024 pixels wide or high; when it's set, it's the resolution however large, such as 300 dpi, the usual resolution for OCR."`
+	Namespace   []string `name:"ns" xor:"ns" help:"Print only the metadata in these namespaces." sep:","`
+	Password    string   `name:"password" env:"METADATA_PASSWORD" help:"The password of encrypted documents, such as PDF documents which need a password to be opened. Set it in the environment, rather than as a flag, to keep it out of the shell's history."`
+	TMDBKey     string   `name:"tmdb-key" env:"TMDB_TOKEN" help:"The API Read Access Token of TMDB, with which videos are looked up on TMDB, from their names. Set it in the environment, rather than as a flag, to keep it out of the shell's history."`
+	AcoustIDKey string   `name:"acoustid-key" env:"CHROMAPRINT_KEY" help:"The application API key of AcoustID, with which audio without an AcoustID identifier in its tags is looked up on AcoustID, from its fingerprint, when it's built with Chromaprint."`
+	Range       string   `name:"range" placeholder:"FROM:TO" help:"With --markdown, print only the bytes of the Markdown from:to, such as 0:4096, and then 4096:8192, or from:, :to, or : for all of it. By default, it's all of it."`
+	Path        string   `arg:"" name:"path" help:"File, directory, or glob pattern such as 'photos/**/*.jpg' (quoted, so the shell doesn't expand it), of the files to read."`
 
 	// renderer renders Markdown for the terminal, once there is some
 	renderer *glamour.TermRenderer
 
 	// tmdb is the client of TMDB, from --tmdb-key, or nil when it wasn't set
 	tmdb *tmdb.Client
+
+	// acoustid is the client of AcoustID, from --acoustid-key, or nil when
+	// it wasn't set
+	acoustid *acoustid.Client
 
 	// offset and limit are the range of the Markdown, from --range, and
 	// paged is true when it was set, so the pages are read in turn
@@ -199,6 +205,16 @@ func (cli *CLI) Run(ctx context.Context) error {
 		cli.tmdb = client
 	}
 
+	// The client of AcoustID, with which audio is looked up, when there's a
+	// key
+	if cli.AcoustIDKey != "" {
+		client, err := acoustid.New(cli.AcoustIDKey)
+		if err != nil {
+			return err
+		}
+		cli.acoustid = client
+	}
+
 	var results []result
 	var errs error
 	var matched bool
@@ -297,6 +313,9 @@ func (cli *CLI) describe(ctx context.Context, r *result) error {
 	if cli.tmdb != nil {
 		opts = append(opts, metadata.WithTMDB(cli.tmdb))
 	}
+	if cli.acoustid != nil {
+		opts = append(opts, metadata.WithAcoustID(cli.acoustid))
+	}
 	switch {
 	case cli.Artwork:
 		opts = append(opts, metadata.WithNamespace(metadata.ArtworkNamespace))
@@ -328,7 +347,7 @@ func (cli *CLI) describe(ctx context.Context, r *result) error {
 	r.Metadata = notes
 	r.meta = meta
 	for _, m := range meta {
-		r.Metadata[m.NS()+string(metadata.Separator)+m.Key()] = jsonValue(m)
+		r.add(m.NS()+string(metadata.Separator)+m.Key(), jsonValue(m))
 	}
 	if cli.paged {
 		cli.paginate(r)
@@ -508,8 +527,10 @@ func (cli *CLI) writeXMP(w io.Writer, r result) error {
 func (cli *CLI) writeArtwork(w io.Writer, r result) error {
 	var images []metadata.Metadata
 	for _, key := range r.keys {
-		if image, ok := r.Metadata[key].(metadata.Metadata); ok && image.NS() == metadata.ArtworkNamespace && len(image.Bytes()) > 0 {
-			images = append(images, image)
+		for _, v := range values(r.Metadata[key]) {
+			if image, ok := v.(metadata.Metadata); ok && image.NS() == metadata.ArtworkNamespace && len(image.Bytes()) > 0 {
+				images = append(images, image)
+			}
 		}
 	}
 	if len(images) == 0 {
@@ -541,6 +562,7 @@ func (cli *CLI) writeArtwork(w io.Writer, r result) error {
 // value returns the value of the metadata with the key, as a string, which
 // is the value itself, or the value of an entry which marshals its own value
 func (r result) value(key string) (string, bool) {
+	// A key with more than one value doesn't have a value
 	switch v := r.Metadata[key].(type) {
 	case string:
 		return v, true
@@ -552,6 +574,24 @@ func (r result) value(key string) (string, bool) {
 
 ///////////////////////////////////////////////////////////////////////////////
 // PRIVATE FUNCTIONS
+
+// add adds a value of a key, which makes a list of its values when it
+// already has one, such as a recording's artists, but not when it already
+// has the same value, such as a title from more than one handler
+func (r *result) add(key string, value any) {
+	existing, exists := r.Metadata[key]
+	if !exists {
+		r.Metadata[key] = value
+		return
+	}
+	list := values(existing)
+	for _, v := range list {
+		if valueString(v) == valueString(value) {
+			return
+		}
+	}
+	r.Metadata[key] = append(list, value)
+}
 
 // writeFile writes the data to the file, opened with the flags
 func writeFile(path string, flags int, data []byte) error {
@@ -679,13 +719,29 @@ func jsonValue(m metadata.Metadata) any {
 }
 
 // tableValue returns the value of a metadata entry as a single line, which
-// is truncated when it's wider than maxValueWidth
+// is truncated when it's wider than maxValueWidth, and the values of a key
+// with more than one, separated by semicolons
 func tableValue(v any) string {
-	var s string
-	if m, ok := v.(metadata.Metadata); ok {
-		s = m.Value()
-	} else {
-		s = fmt.Sprint(v)
+	var s []string
+	for _, v := range values(v) {
+		s = append(s, valueString(v))
 	}
-	return ansi.Truncate(strings.Join(strings.Fields(s), " "), maxValueWidth, "…")
+	return ansi.Truncate(strings.Join(strings.Fields(strings.Join(s, "; ")), " "), maxValueWidth, "…")
+}
+
+// valueString returns a value of a metadata entry as a string
+func valueString(v any) string {
+	if m, ok := v.(metadata.Metadata); ok {
+		return m.Value()
+	}
+	return fmt.Sprint(v)
+}
+
+// values returns the values of a key, which are a list when it has more
+// than one
+func values(v any) []any {
+	if list, ok := v.([]any); ok {
+		return list
+	}
+	return []any{v}
 }

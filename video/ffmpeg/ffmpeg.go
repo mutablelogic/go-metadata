@@ -242,7 +242,7 @@ func streamMetadata(streams map[int]profile.Profile) []metadata.Metadata {
 			audio = true
 			result = append(result, meta.New(AudioNamespace, "codec", par.CodecID().Name()))
 			if rate := par.SampleRate(); rate > 0 {
-				result = append(result, meta.New(AudioNamespace, "sample_rate", rate))
+				result = append(result, meta.New(AudioNamespace, "sample-rate", rate))
 			}
 			if layout := par.ChannelLayout(); layout.NumChannels() > 0 {
 				result = append(result, meta.New(AudioNamespace, "channels", layout.NumChannels()))

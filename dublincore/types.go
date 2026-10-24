@@ -40,6 +40,7 @@ const (
 	KindImage        = "image"        // An image, such as a photo or a drawing
 	KindMailbox      = "mailbox"      // A mailbox of email messages, such as an mbox file
 	KindPresentation = "presentation" // A presentation of slides
+	KindRecording    = "recording"    // A recording of music, which MusicBrainz identifies
 	KindSoftware     = "software"     // Software, such as an application or a library
 	KindSpreadsheet  = "spreadsheet"  // A spreadsheet
 	KindSubtitles    = "subtitles"    // Subtitles of a video, such as a SubRip file
@@ -65,6 +66,7 @@ var kindTypes = map[string]string{
 	KindImage:        TypeStillImage,
 	KindMailbox:      TypeCollection,
 	KindPresentation: TypeText,
+	KindRecording:    TypeSound,
 	KindSoftware:     TypeSoftware,
 	KindSpreadsheet:  TypeDataset,
 	KindSubtitles:    TypeText,

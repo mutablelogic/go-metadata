@@ -4,7 +4,7 @@ import "testing"
 
 func Test_types_000(t *testing.T) {
 	// Every kind has a DCMI type, and something which isn't a kind has none
-	for _, kind := range []string{KindArchive, KindAudio, KindBook, KindCode, KindData, KindDocument, KindForm, KindImage, KindPresentation, KindSoftware, KindSpreadsheet, KindVideo, KindWebPage} {
+	for _, kind := range []string{KindArchive, KindAudio, KindBook, KindCode, KindData, KindDocument, KindForm, KindImage, KindPresentation, KindRecording, KindSoftware, KindSpreadsheet, KindVideo, KindWebPage} {
 		if TypeOf(kind) == "" {
 			t.Errorf("%s: expected a type", kind)
 		}

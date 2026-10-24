@@ -38,8 +38,8 @@ func audioMeta(t *testing.T, name string, opts ...metadata.Option) map[string]me
 func Test_ffmpeg_000(t *testing.T) {
 	// The duration, codec and kind of audio
 	for name, want := range map[string]map[string]string{
-		"sample.mp3": {"audio:codec": "mp3", "audio:sample_rate": "44100", "audio:channels": "2"},
-		"jfk.wav":    {"audio:codec": "pcm_s16le", "audio:sample_rate": "16000", "audio:channels": "1"},
+		"sample.mp3": {"audio:codec": "mp3", "audio:sample-rate": "44100", "audio:channels": "2"},
+		"jfk.wav":    {"audio:codec": "pcm_s16le", "audio:sample-rate": "16000", "audio:channels": "1"},
 	} {
 		got := audioMeta(t, name)
 		want["metadata:kind"], want["dc:type"] = "audio", "Sound"
@@ -77,8 +77,8 @@ func Test_ffmpeg_001(t *testing.T) {
 func Test_ffmpeg_002(t *testing.T) {
 	// A playlist, which has an audio type but is text, isn't read as audio,
 	// but as a playlist,
-	// and data which isn't audio has its kind, and no more, which isn't an
-	// error
+	// and data which isn't audio has its kind, and a note, and no more,
+	// which isn't an error
 	for _, contentType := range []string{"audio/x-mpegurl", "audio/mpegurl", "audio/x-scpls"} {
 		meta, err := getMetadata(context.Background(), strings.NewReader("#EXTM3U\n#EXTINF:123,Artist - Title\nmusic/track01.mp3\n"), contentType)
 		if err != nil {
@@ -94,9 +94,17 @@ func Test_ffmpeg_002(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var note bool
 	for _, m := range meta {
-		if key(m) != "metadata:kind" && key(m) != "dc:type" {
+		switch key(m) {
+		case "metadata:kind", "dc:type":
+		case "audio:note":
+			note = true
+		default:
 			t.Errorf("expected no metadata, got %s", key(m))
 		}
+	}
+	if !note {
+		t.Error("expected a note")
 	}
 }

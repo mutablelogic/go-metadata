@@ -189,3 +189,30 @@ func Test_xmp_000(t *testing.T) {
 		t.Errorf("expected nothing, got %q %v", out.String(), err)
 	}
 }
+
+func Test_result_000(t *testing.T) {
+	// A key which a file has more than once, such as the identifiers of a
+	// recording's artists, is a list of its values, without the same value
+	// twice, and is separated by semicolons in a table
+	r := result{Metadata: map[string]any{}}
+	for _, m := range []metadata.Metadata{
+		meta.New("musicbrainz", "artist-id", "a"),
+		meta.New("musicbrainz", "artist-id", "b"),
+		meta.New("musicbrainz", "artist-id", "a"),
+		meta.New("dc", "title", "Title"),
+	} {
+		r.add(m.NS()+":"+m.Key(), jsonValue(m))
+	}
+	if ids := values(r.Metadata["musicbrainz:artist-id"]); len(ids) != 2 || valueString(ids[0]) != "a" || valueString(ids[1]) != "b" {
+		t.Errorf("unexpected artist identifiers %v", ids)
+	}
+	if got := tableValue(r.Metadata["musicbrainz:artist-id"]); got != "a; b" {
+		t.Errorf("unexpected table value %q", got)
+	}
+	if title, ok := r.value("dc:title"); !ok || title != "Title" {
+		t.Errorf("unexpected title %q", title)
+	}
+	if _, ok := r.value("musicbrainz:artist-id"); ok {
+		t.Error("expected no single value of a list")
+	}
+}
