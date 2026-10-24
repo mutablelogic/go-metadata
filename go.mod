@@ -12,7 +12,7 @@ require (
 	github.com/charmbracelet/x/term v0.2.2
 	github.com/giraffesyo/pdf v0.8.0
 	github.com/mutablelogic/go-client v1.4.10
-	github.com/mutablelogic/go-media v1.10.9
+	github.com/mutablelogic/go-media v1.11.0
 	github.com/mutablelogic/go-server v1.7.16
 	github.com/mutablelogic/go-tokenizer v0.0.3
 	github.com/oov/psd v0.0.0-20260818185439-a5d50ec0acac
@@ -58,7 +58,7 @@ require (
 	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
-	github.com/mutablelogic/go-pg v1.3.5 // indirect
+	github.com/mutablelogic/go-pg v1.4.4 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/xdg-go/stringprep v1.0.4 // indirect
 	github.com/xo/terminfo v1.2.0 // indirect

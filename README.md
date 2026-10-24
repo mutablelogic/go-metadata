@@ -271,24 +271,35 @@ of the C libraries they link to:
 
 | Library | Used for | License |
 | --- | --- | --- |
-| [FFmpeg](https://ffmpeg.org/legal.html) | Audio and video | LGPL 2.1 or later, or GPL when built with GPL components |
+| [FFmpeg](https://ffmpeg.org/legal.html) | Audio and video | LGPL 2.1 or later by default; GPL as Homebrew and go-media build it (see below) |
 | [libexif](https://libexif.github.io/) | The EXIF metadata of photos | LGPL 2.1 or later |
 | [libheif](https://github.com/strukturag/libheif) | HEIF and AVIF images | LGPL 3.0 |
-| [LibRaw](https://www.libraw.org/) | Camera RAW images | LGPL 2.1 or CDDL 1.0 |
+| [LibRaw](https://www.libraw.org/) | Camera RAW images | LGPL 2.1 or CDDL 1.0, with bundled code under BSD and MIT licenses |
 | [Chromaprint](https://acoustid.org/chromaprint) | Fingerprints of audio, with the `chromaprint` tag | LGPL 2.1, as it includes parts of FFmpeg; its own code is MIT |
 
 **Requirements when distributing binaries which include the LGPL libraries:**
 
-1. Include their notices and licenses, which the [NOTICE](NOTICE) file has
+1. Include their notices and licenses, which the [NOTICE](NOTICE) file has, and a copy of the
+   [GNU GPL v3](https://www.gnu.org/licenses/gpl-3.0.html), which LGPL v3 (libheif) requires
+   alongside it
 2. Provide access to the source code of the versions you used
 3. Allow users to relink the application with modified versions of the libraries. A binary
    which links to them dynamically, such as one built with the libraries from Homebrew or a
    Linux distribution, meets this; one which links to them statically, such as one built with
    go-media's libraries (`GO_MEDIA_PREFIX`), must also provide its object files, or its source
 
-A build of FFmpeg with GPL components makes a binary which includes it subject to the GPL.
-Homebrew's FFmpeg is one, as it includes x264 and x265. A binary built without cgo
-(`CGO_ENABLED=0`) includes none of these libraries.
+A binary has the license of the FFmpeg it includes, and FFmpeg's license depends on how it's
+built:
+
+- **Homebrew's FFmpeg** includes x264 and x265, so it's GPL.
+- **go-media's libraries** (`GO_MEDIA_PREFIX`, from go-media v1.11.0) build FFmpeg as
+  **"GPL version 3 or later"**.
+- **`FFMPEG_NONFREE=1`** in go-media builds it as **"nonfree and unredistributable"**, so a
+  binary built with it is for your own use only.
+
+A binary which includes a GPL build of FFmpeg must be distributed under the GPL, with its
+complete source code. A binary built without cgo (`CGO_ENABLED=0`) includes none of these
+libraries.
 
 ## Dependencies
 
