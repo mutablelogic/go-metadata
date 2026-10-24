@@ -395,31 +395,49 @@
     "markdown": "# A Sample Kindle Book\n\nIt was a **bright** cold day in April, and the clocks were striking thirteen. It was a bright cold day in April, again, as the text repeats itself, so it compresses.\n\n## Chapter Two\n\n- first\n- second\n\nCafé au lait, and a \\*star\\*."
   },
   "vcard_google1.vcf": {
-    "content_type": "text/x-vcard",
+    "content_type": "text/vcard",
     "params": {
       "charset": "utf-8"
     }
   },
   "vcard_google2.vcf": {
-    "content_type": "text/x-vcard",
+    "content_type": "text/vcard",
     "params": {
       "charset": "utf-8"
     }
   },
   "vcard_google3.vcf": {
-    "content_type": "text/x-vcard",
+    "content_type": "text/vcard",
     "params": {
       "charset": "utf-8"
     }
   },
   "vcard_google4.vcf": {
-    "content_type": "text/x-vcard",
+    "content_type": "text/vcard",
     "params": {
       "charset": "utf-8"
     }
   },
   "vcard_google5.vcf": {
-    "content_type": "text/x-vcard",
+    "content_type": "text/vcard",
+    "params": {
+      "charset": "utf-8"
+    }
+  },
+  "ical_birthday1.ics": {
+    "content_type": "text/calendar",
+    "params": {
+      "charset": "utf-8"
+    }
+  },
+  "ical_birthday2.ics": {
+    "content_type": "text/calendar",
+    "params": {
+      "charset": "utf-8"
+    }
+  },
+  "ical_google.ics": {
+    "content_type": "text/calendar",
     "params": {
       "charset": "utf-8"
     }

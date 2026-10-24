@@ -27,6 +27,7 @@ const (
 	KindArchive      = "archive"      // An archive of files, such as a zip file
 	KindAudio        = "audio"        // Audio, such as music or a podcast
 	KindBook         = "book"         // A book, such as an EPUB or Kindle book
+	KindCalendar     = "calendar"     // A calendar of events or tasks
 	KindCode         = "code"         // Source code
 	KindContact      = "contact"      // A contact, such as a person in an address book
 	KindData         = "data"         // Structured data, such as JSON or YAML
@@ -46,6 +47,7 @@ var kindTypes = map[string]string{
 	KindArchive:      TypeCollection,
 	KindAudio:        TypeSound,
 	KindBook:         TypeText,
+	KindCalendar:     TypeEvent,
 	KindCode:         TypeSoftware,
 	KindContact:      TypeText,
 	KindData:         TypeDataset,

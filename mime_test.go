@@ -11,6 +11,10 @@ import (
 
 	// Packages
 	. "github.com/mutablelogic/go-metadata"
+
+	// The extensions of the formats of the test files, which are text
+	_ "github.com/mutablelogic/go-metadata/pkg/ical"
+	_ "github.com/mutablelogic/go-metadata/pkg/vcard"
 )
 
 const (

@@ -38,13 +38,6 @@ var (
 // LIFECYCLE
 
 func init() {
-	// A vCard is text, and refined by its extension
-	for _, ext := range []string{".vcf", ".vcard"} {
-		if err := metadata.AddTextExtensionType(ext, "text/vcard"); err != nil {
-			panic(err)
-		}
-	}
-
 	// The details of the first contact, and its kind
 	metadata.AddHandler(reContentType, "vcard", func(_ context.Context, r io.Reader, _ *metadata.Opts) ([]metadata.Metadata, error) {
 		kind := metadata.KindMetadata(dc.KindContact)
