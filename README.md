@@ -251,14 +251,44 @@ contacts, [`pkg/rtf`](https://pkg.go.dev/github.com/mutablelogic/go-metadata/pkg
 [`pkg/tmdb`](https://pkg.go.dev/github.com/mutablelogic/go-metadata/pkg/tmdb), [`pkg/acoustid`](https://pkg.go.dev/github.com/mutablelogic/go-metadata/pkg/acoustid) and
 [`pkg/chromaprint`](https://pkg.go.dev/github.com/mutablelogic/go-metadata/pkg/chromaprint).
 
-## License
+## License & Distribution
 
-go-metadata is licensed under the [Apache License 2.0](LICENSE).
+go-metadata is licensed under the **Apache License 2.0**.
 
-When it's built with cgo, it links to FFmpeg, libexif, libheif and LibRaw, which are licensed
-under the LGPL (LibRaw is also available under the CDDL), so a binary which includes them is
-subject to their licences too. A build of FFmpeg with GPL components, such as Homebrew's, which
-includes x264 and x265, makes such a binary subject to the GPL.
+> **go-metadata**  
+> [https://github.com/mutablelogic/go-metadata/](https://github.com/mutablelogic/go-metadata/)  
+> Copyright (c) 2026 David Thorpe, All rights reserved.
+
+Under the Apache License 2.0, you are free to use, modify, and distribute this software for any
+purpose, including commercial applications. **Attribution requirement:** When redistributing
+this software or derivative works (in source or binary form), you must include the copyright
+notice above, and a copy of the [LICENSE](LICENSE) and [NOTICE](NOTICE) files. If you modify the
+code, you must state your changes. See the
+[Apache License 2.0](http://www.apache.org/licenses/LICENSE-2.0) for complete terms.
+
+**Important:** When distributing binaries built with cgo, you must also comply with the licenses
+of the C libraries they link to:
+
+| Library | Used for | License |
+| --- | --- | --- |
+| [FFmpeg](https://ffmpeg.org/legal.html) | Audio and video | LGPL 2.1 or later, or GPL when built with GPL components |
+| [libexif](https://libexif.github.io/) | The EXIF metadata of photos | LGPL 2.1 or later |
+| [libheif](https://github.com/strukturag/libheif) | HEIF and AVIF images | LGPL 3.0 |
+| [LibRaw](https://www.libraw.org/) | Camera RAW images | LGPL 2.1 or CDDL 1.0 |
+| [Chromaprint](https://acoustid.org/chromaprint) | Fingerprints of audio, with the `chromaprint` tag | LGPL 2.1, as it includes parts of FFmpeg; its own code is MIT |
+
+**Requirements when distributing binaries which include the LGPL libraries:**
+
+1. Include their notices and licenses, which the [NOTICE](NOTICE) file has
+2. Provide access to the source code of the versions you used
+3. Allow users to relink the application with modified versions of the libraries. A binary
+   which links to them dynamically, such as one built with the libraries from Homebrew or a
+   Linux distribution, meets this; one which links to them statically, such as one built with
+   go-media's libraries (`GO_MEDIA_PREFIX`), must also provide its object files, or its source
+
+A build of FFmpeg with GPL components makes a binary which includes it subject to the GPL.
+Homebrew's FFmpeg is one, as it includes x264 and x265. A binary built without cgo
+(`CGO_ENABLED=0`) includes none of these libraries.
 
 ## Dependencies
 
@@ -283,3 +313,9 @@ module with its version.
 | [`github.com/alecthomas/kong`](https://github.com/alecthomas/kong) | The `metadata` command's flags | MIT |
 | [`github.com/bmatcuk/doublestar/v4`](https://github.com/bmatcuk/doublestar) | The `metadata` command's glob patterns | MIT |
 | [`github.com/charmbracelet/glamour`](https://github.com/charmbracelet/glamour), [`lipgloss`](https://github.com/charmbracelet/lipgloss), [`x/ansi`](https://github.com/charmbracelet/x), [`x/term`](https://github.com/charmbracelet/x) | The `metadata` command's tables and Markdown in a terminal | MIT |
+
+## Contributing
+
+Please file feature requests and bugs at
+[github.com/mutablelogic/go-metadata/issues](https://github.com/mutablelogic/go-metadata/issues).
+Pull Requests are welcome, after discussion of the proposed changes.
