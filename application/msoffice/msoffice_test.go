@@ -87,3 +87,50 @@ func Test_msoffice_003(t *testing.T) {
 		t.Errorf("expected ErrBadParameter, got %v", err)
 	}
 }
+
+// named is a reader with a name, for its extension
+type named struct {
+	*bytes.Reader
+	name string
+}
+
+func (r named) Name() string { return r.name }
+
+func Test_msoffice_004(t *testing.T) {
+	// A Visio drawing, a Project plan, or a Works document, which are
+	// compound files, are detected by their extensions, and are a drawing
+	// and documents, with their properties, and a note that their content
+	// can't be read
+	data, err := os.ReadFile(filepath.Join("..", "..", "testfiles", "sample.doc"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name, contentType, kind, dcType, note string
+	}{
+		{"drawing.vsd", "application/vnd.visio", "drawing", "StillImage", ".vsdx"},
+		{"stencil.vss", "application/vnd.visio", "drawing", "StillImage", ".vsdx"},
+		{"template.vst", "application/vnd.visio", "drawing", "StillImage", ".vsdx"},
+		{"plan.mpp", "application/vnd.ms-project", "document", "Text", "Microsoft Project"},
+		{"template.mpt", "application/vnd.ms-project", "document", "Text", "Microsoft Project"},
+		{"letter.wps", "application/vnd.ms-works", "document", "Text", "Microsoft Works"},
+	} {
+		contentType, meta, err := metadata.Extract(context.Background(), named{bytes.NewReader(data), test.name})
+		if err != nil {
+			t.Fatalf("%s: %v", test.name, err)
+		}
+		got := make(map[string]string, len(meta))
+		for _, m := range meta {
+			got[m.NS()+string(metadata.Separator)+m.Key()] = m.Value()
+		}
+		if contentType != test.contentType || got["metadata:kind"] != test.kind || got["dc:type"] != test.dcType || got["dc:creator"] != "Ada Lovelace" {
+			t.Errorf("%s: got %q, %v", test.name, contentType, got)
+		}
+		_, meta, err = metadata.Extract(context.Background(), named{bytes.NewReader(data), test.name}, metadata.WithNamespace(metadata.MarkdownNamespace))
+		if err != nil {
+			t.Fatal(err)
+		} else if len(meta) != 1 || !strings.Contains(meta[0].Value(), test.note) {
+			t.Errorf("%s: got %v", test.name, meta)
+		}
+	}
+}

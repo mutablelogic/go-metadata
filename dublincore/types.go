@@ -32,10 +32,13 @@ const (
 	KindContact      = "contact"      // A contact, such as a person in an address book
 	KindData         = "data"         // Structured data, such as JSON or YAML
 	KindDocument     = "document"     // A document, such as a PDF or Word document, or plain text
+	KindDrawing      = "drawing"      // A drawing or diagram, such as a Visio drawing
+	KindEmail        = "email"        // An email message
 	KindEpisode      = "episode"      // An episode of a TV show
 	KindFilm         = "film"         // A film, such as a movie
 	KindForm         = "form"         // A form, which is filled in
 	KindImage        = "image"        // An image, such as a photo or a drawing
+	KindMailbox      = "mailbox"      // A mailbox of email messages, such as an mbox file
 	KindPresentation = "presentation" // A presentation of slides
 	KindSoftware     = "software"     // Software, such as an application or a library
 	KindSpreadsheet  = "spreadsheet"  // A spreadsheet
@@ -54,10 +57,13 @@ var kindTypes = map[string]string{
 	KindContact:      TypeText,
 	KindData:         TypeDataset,
 	KindDocument:     TypeText,
+	KindDrawing:      TypeStillImage,
+	KindEmail:        TypeText,
 	KindEpisode:      TypeMovingImage,
 	KindFilm:         TypeMovingImage,
 	KindForm:         TypeInteractiveResource,
 	KindImage:        TypeStillImage,
+	KindMailbox:      TypeCollection,
 	KindPresentation: TypeText,
 	KindSoftware:     TypeSoftware,
 	KindSpreadsheet:  TypeDataset,

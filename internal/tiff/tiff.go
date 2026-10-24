@@ -6,6 +6,7 @@ package tiff
 import (
 	"bytes"
 	"encoding/binary"
+	"slices"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -145,6 +146,46 @@ func Thumbnail(data []byte) []byte {
 		return nil
 	}
 	return bytes.Clone(tiff[offset : offset+length])
+}
+
+// SortTags returns a copy of TIFF data whose image file directories have
+// their entries sorted by their tags, as TIFF requires, which some
+// applications don't do, such as Illustrator 8 in the preview of an EPS file,
+// so a decoder which requires it can read it, or the data itself when it
+// doesn't start with a TIFF header
+func SortTags(data []byte) []byte {
+	order, offset, ok := header(data)
+	if !ok {
+		return data
+	}
+	result := bytes.Clone(data)
+	seen := make(map[uint32]bool)
+	for offset != 0 && !seen[offset] {
+		seen[offset] = true
+		start := uint64(offset)
+		if start+2 > uint64(len(result)) {
+			break
+		}
+		count := uint64(order.Uint16(result[start:]))
+		end := start + 2 + count*ifdEntrySize
+		if end+4 > uint64(len(result)) {
+			break
+		}
+
+		// Sort the entries, which are each ifdEntrySize bytes, by their tags
+		entries := make([][]byte, count)
+		for i := range entries {
+			entries[i] = bytes.Clone(result[start+2+uint64(i)*ifdEntrySize:][:ifdEntrySize])
+		}
+		slices.SortStableFunc(entries, func(a, b []byte) int {
+			return int(order.Uint16(a)) - int(order.Uint16(b))
+		})
+		for i, entry := range entries {
+			copy(result[start+2+uint64(i)*ifdEntrySize:], entry)
+		}
+		offset = order.Uint32(result[end:])
+	}
+	return result
 }
 
 ////////////////////////////////////////////////////////////////////////////////

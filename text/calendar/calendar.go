@@ -91,7 +91,7 @@ func init() {
 // calendarMetadata returns the metadata of a calendar: its events and tasks
 // as ical:event, the locations of its events, to search for, as
 // ical:location, its zone as ical:tz, and when it starts and ends, as
-// ical:start and ical:end (see span), which aren't known for a birthday
+// ical:date-start and ical:date-end (see span), which aren't known for a birthday
 // whose year isn't known, or which repeats forever. Its title is the calendar's name,
 // or the title of its events when they all have the same one, such as the
 // flights of a trip, and otherwise, the title from the file's name. Its
@@ -146,10 +146,10 @@ func calendarMetadata(c *ical.Calendar) []metadata.Metadata {
 	// whose year isn't known, or which repeats forever
 	if start, end, hasStart, hasEnd := span(c.Events); hasStart || hasEnd {
 		if hasStart {
-			add(Namespace, "start", start.UTC())
+			add(Namespace, "date-start", start.UTC())
 		}
 		if hasEnd {
-			add(Namespace, "end", end.UTC())
+			add(Namespace, "date-end", end.UTC())
 		}
 	}
 

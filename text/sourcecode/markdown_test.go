@@ -46,6 +46,9 @@ func Test_sourcecode_000(t *testing.T) {
 		{"app.toml", "[server]\r\nport = 8080\r\n", "application/toml; charset=utf-8", "```toml\n[server]\nport = 8080\n```\n"},
 		{"main.go", "package main\n", "text/x-go; charset=utf-8", "```go\npackage main\n```\n"},
 		{"script.ts", "const a: number = 1\n", "text/x-typescript; charset=utf-8", "```typescript\nconst a: number = 1\n```\n"},
+		{"style.css", "body { margin: 0 }\n", "text/css; charset=utf-8", "```css\nbody { margin: 0 }\n```\n"},
+		{"paper.latex", "\\section{One}\n", "text/x-tex; charset=utf-8", "```latex\n\\section{One}\n```\n"},
+		{"refs.bib", "@book{a, title={A}}\n", "text/x-bibtex; charset=utf-8", "```bibtex\n@book{a, title={A}}\n```\n"},
 	} {
 		contentType, got := markdown(t, test.name, []byte(test.data))
 		if contentType != test.contentType {
@@ -77,5 +80,33 @@ func Test_sourcecode_002(t *testing.T) {
 		t.Errorf("expected ErrNotImplemented, got %v", err)
 	} else if contentType != "video/mp2t" || len(meta) != 0 {
 		t.Errorf("expected video/mp2t, and no metadata, got %q with %d entries", contentType, len(meta))
+	}
+}
+
+func Test_sourcecode_003(t *testing.T) {
+	// The kind of source code is code, and of data and documents in plain
+	// text, data and document
+	for name, want := range map[string]string{
+		"style.css":   "code",
+		"main.go":     "code",
+		"paper.tex":   "document",
+		"paper.latex": "document",
+		"macros.sty":  "document",
+		"refs.bib":    "data",
+		"data.json":   "data",
+	} {
+		_, meta, err := metadata.Extract(context.Background(), named{bytes.NewReader([]byte("x\n")), name})
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		var kind string
+		for _, m := range meta {
+			if m.NS() == metadata.MetadataNamespace && m.Key() == metadata.KindKey {
+				kind = m.Value()
+			}
+		}
+		if kind != want {
+			t.Errorf("%s: expected %q, got %q", name, want, kind)
+		}
 	}
 }

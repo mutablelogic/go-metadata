@@ -38,8 +38,9 @@ type sourceType struct {
 //
 // An extension of source code which is also another type of file, which
 // isn't text, is in textSourceTypes. An extension of more than one language
-// isn't here: .d, .v, .fs and .pl, which are Perl or Prolog, except .m, which
-// is Objective-C, though it's MATLAB too.
+// isn't here: .d, .v, .fs and .pl, which are Perl or Prolog, and .cls,
+// which is a LaTeX class or Visual Basic, except .m, which is Objective-C,
+// though it's MATLAB too.
 var sourceTypes = map[string]sourceType{
 	// C and C++, and Objective-C and Objective-C++
 	".c":   {"text/x-csrc", "c"},
@@ -104,6 +105,7 @@ var sourceTypes = map[string]sourceType{
 	".coffee": {"text/x-coffeescript", "coffeescript"},
 	".vue":    {"text/x-vue", "vue"},
 	".svelte": {"text/x-svelte", "svelte"},
+	".css":    {"text/css", "css"},
 	".scss":   {"text/x-scss", "scss"},
 	".sass":   {"text/x-sass", "sass"},
 	".less":   {"text/x-less", "less"},
@@ -139,10 +141,14 @@ var sourceTypes = map[string]sourceType{
 	".patch": {"text/x-patch", "diff"},
 
 	// Documents in plain text, which aren't Markdown
-	".rst":  {"text/x-rst", "rst"},
-	".adoc": {"text/asciidoc", "asciidoc"},
-	".org":  {"text/org", "org"},
-	".tex":  {"text/x-tex", "latex"},
+	".rst":   {"text/x-rst", "rst"},
+	".adoc":  {"text/asciidoc", "asciidoc"},
+	".org":   {"text/org", "org"},
+	".tex":   {"text/x-tex", "latex"},
+	".latex": {"text/x-tex", "latex"},
+	".ltx":   {"text/x-tex", "latex"},
+	".sty":   {"text/x-tex", "latex"},
+	".bib":   {"text/x-bibtex", "bibtex"},
 }
 
 // textSourceTypes are the types of source code which refine a file which is
@@ -170,6 +176,7 @@ var sourceKinds = map[string]string{
 	"text/asciidoc":            dc.KindDocument,
 	"text/org":                 dc.KindDocument,
 	"text/x-tex":               dc.KindDocument,
+	"text/x-bibtex":            dc.KindData,
 }
 
 // languages are the names of the languages of the content types of source
@@ -211,7 +218,7 @@ func init() {
 			return kind, err
 		}
 		w := imarkdown.NewWriter(o)
-		_, err = w.WriteString(codeBlock(languages[o.ContentType()], text))
+		_, err = w.WriteString(imarkdown.CodeBlock(languages[o.ContentType()], text))
 		meta, err := w.Metadata(err)
 		return append(meta, kind...), err
 	}, metadata.MarkdownNamespace, metadata.MetadataNamespace, dc.Namespace)
@@ -227,31 +234,4 @@ func sourceKind(contentType string) string {
 		return kind
 	}
 	return dc.KindCode
-}
-
-// codeBlock returns the text as a fenced Markdown code block in the
-// language, with a fence of more backticks than any run of them in the text,
-// so the text can't end it
-func codeBlock(language, text string) string {
-	text = strings.ReplaceAll(text, "\r\n", "\n")
-	if text != "" && !strings.HasSuffix(text, "\n") {
-		text += "\n"
-	}
-	fence := strings.Repeat("`", max(3, longestRun(text, '`')+1))
-	return fence + language + "\n" + text + fence + "\n"
-}
-
-// longestRun returns the length of the longest run of the character in the
-// text
-func longestRun(text string, c byte) int {
-	longest, run := 0, 0
-	for i := 0; i < len(text); i++ {
-		if text[i] == c {
-			run++
-			longest = max(longest, run)
-		} else {
-			run = 0
-		}
-	}
-	return longest
 }

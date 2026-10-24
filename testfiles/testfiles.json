@@ -184,9 +184,11 @@
       "dc:type": "Text",
       "metadata:kind": "document",
       "pdf:creator": "genpdf",
+      "pdf:height-mm": "297",
       "pdf:pages": "2",
       "pdf:producer": "go-metadata",
-      "pdf:version": "1.7"
+      "pdf:version": "1.7",
+      "pdf:width-mm": "209.9"
     },
     "artwork": {
       "artwork:page0001": "image/jpeg",
@@ -203,9 +205,11 @@
       "dc:type": "Text",
       "metadata:kind": "document",
       "pdf:creator": "Canon SC1001",
+      "pdf:height-mm": "297",
       "pdf:pages": "3",
       "pdf:producer": "Canon EPP",
-      "pdf:version": "1.7"
+      "pdf:version": "1.7",
+      "pdf:width-mm": "209.9"
     },
     "artwork": {
       "artwork:page0001": "image/jpeg",
@@ -441,5 +445,69 @@
     "params": {
       "charset": "utf-8"
     }
+  },
+  "eml_outlook.eml": {
+    "content_type": "message/rfc822",
+    "params": {
+      "charset": "utf-8"
+    },
+    "metadata": {
+      "dc:creator": "Example Trading",
+      "dc:date": "2001-04-27T01:44:25Z",
+      "dc:identifier": "001a01c0cebb$e73091a0$3b4448c0@pc80595",
+      "dc:title": "new product catalog (Netbeeper)",
+      "dc:type": "Text",
+      "email:attachments": "I7B02 HTML.htm",
+      "email:from": "Example Trading <sales@example.com>",
+      "email:to": "kay 陳小姐 <kay@example.org>, Example Trading (tw) <sales@example.com>, Amy Chan (Example Trading) <amy@example.org>, Gary Lee <gary@example.net>",
+      "metadata:kind": "email"
+    },
+    "markdown": "# new product catalog (Netbeeper)\n\n- **From:** Example Trading \\<sales@example.com\\>\n- **To:** kay 陳小姐 \\<kay@example.org\\>, Example Trading (tw) \\<sales@example.com\\>, Amy Chan (Example Trading) \\<amy@example.org\\>, Gary Lee \\<gary@example.net\\>\n- **Date:** Fri, 27 Apr 2001 09:44 +0800\n- **Attachments:** I7B02 HTML.htm\n"
+  },
+  "eml_eudora.eml": {
+    "content_type": "message/rfc822",
+    "params": {
+      "charset": "utf-8"
+    },
+    "metadata": {
+      "dc:description": "this sounds like an excellent idea... what is the best way to proceed to make this happen? c",
+      "dc:title": "eml eudora",
+      "dc:type": "Text",
+      "metadata:kind": "email"
+    },
+    "markdown": "this sounds like an excellent idea...\\\nwhat is the best way to proceed to make this happen?\n\nc\n\n-----Original Message-----\\\nFrom: Alex Morgan \\[mailto:alex@example.com\\]\\\nSent: 24 August 2001 10:25\\\nTo: sam@example.com; chris@example.com\\\nSubject: RE: ieee and acm membership\n\nit works on individual basis. much like an MSDN account.\n\n> -----Original Message-----\\\n> From: Sam Taylor \\[mailto:sam@example.com\\]\\\n> Sent: Friday, August 24, 2001 10:16 AM\\\n> To: 'Alex Morgan'; chris@example.com\\\n> Subject: RE: ieee and acm membership\n\n> top idea. but isn't it possible to get a \"example\" account\\\n> and give each employee access to this account?\n\n> sam\n\n> > -----Original Message-----\\\n> > From: Alex Morgan \\[mailto:alex@example.com\\]\\\n> > Sent: Thursday, August 23, 2001 11:55\\\n> > To: sam@example.com; chris@example.com\\\n> > Subject: ieee and acm membership\n\n> > Hi,\n\n> > Do you think it'd be a good idea if Example pays for an\\\n> > IEEE Computer\\\n> > Society and/or ACM memberships for Example employees that\n\n> wish this?\n\n> > We could package a free IEEE and/or ACM membership as a\\\n> > Example employee\\\n> > benefit.\n\n> > ACM: http://www.acm.org\\\n> > IEEE: http://www.ieee.org\n\n> > Robin and myself are already members of IEEE, I'm also a\\\n> > member of ACM.\n\n> > Cost is about $150 per year for each per person.\n\n> > Greets,\\\n> > Alex\n"
+  },
+  "mbox_eudora.mbx": {
+    "content_type": "application/mbox",
+    "params": {
+      "charset": "utf-8"
+    },
+    "metadata": {
+      "dc:title": "mbox eudora",
+      "dc:type": "Collection",
+      "mbox:date-end": "2002-02-15T14:29:36Z",
+      "mbox:messages": "4",
+      "mbox:senders": "Ada Lovelace; charles@example.com; José",
+      "mbox:date-start": "2002-02-11T13:10:00Z",
+      "mbox:subjects": "Engine notes; Lunch?; Café mécanique",
+      "metadata:kind": "mailbox"
+    },
+    "markdown": "# Engine notes\n\n- **From:** Ada Lovelace \\<ada@example.com\\>\n- **To:** Charles Babbage \\<charles@example.com\\>\n- **Date:** Mon, 11 Feb 2002 13:10 +0000\n\nCharles,\n\nFrom the start, the engine was meant to weave patterns.\\\nFrom what I hear, the cards are ready.\n\nAda\n\n# Lunch?\n\n- **From:** charles@example.com\n- **To:** ada@example.com\n- **Date:** Tue, 12 Feb 2002 10:02 +0000\n\nLunch on Thursday?\n\n# (no subject)\n\n- **From:** Ada Lovelace \\<ada@example.com\\>\n- **To:** charles@example.com\n- **Date:** Wed, 13 Feb 2002 09:29 +0000\n- **Attachments:** plan.doc\n\nThe plan is attached.\n\n# Café mécanique\n\n- **From:** José \\<jose@example.org\\>\n- **To:** ada@example.com\n- **Date:** Fri, 15 Feb 2002 15:29 +0100\n\nThe mechanical café opens on Monday.\n"
+  },
+  "csv_excel.csv": {
+    "content_type": "text/csv",
+    "params": {
+      "charset": "utf-8"
+    },
+    "metadata": {
+      "csv:columns": "3",
+      "csv:delimiter": "semicolon",
+      "csv:headers": "Produit, Prix, Quantité",
+      "csv:rows": "3",
+      "dc:title": "csv excel",
+      "dc:type": "Dataset",
+      "metadata:kind": "data"
+    },
+    "markdown": "| Produit | Prix | Quantité |\n| --- | --- | --- |\n| Café crème | 2,50 | 12 |\n| Thé à la menthe | 3,00 | 7 |\n| Croissant; beurre | 1,20 | 30 |\n"
   }
 }

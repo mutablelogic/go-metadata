@@ -451,7 +451,7 @@ func Test_span_000(t *testing.T) {
 	span := func(t *testing.T, lines ...string) (any, any) {
 		t.Helper()
 		got := entries(t, ics(lines...), "span.ics")
-		return got["ical:start"], got["ical:end"]
+		return got["ical:date-start"], got["ical:date-end"]
 	}
 	day := func(year int, month time.Month, d int) time.Time {
 		return time.Date(year, month, d, 0, 0, 0, 0, time.UTC)

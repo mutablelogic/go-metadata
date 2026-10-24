@@ -5,6 +5,7 @@ package markdown
 
 import (
 	"errors"
+	"strings"
 	"unicode/utf8"
 
 	// Packages
@@ -120,8 +121,35 @@ func (w *Writer) Metadata(err error) ([]metadata.Metadata, error) {
 	return result, nil
 }
 
+// CodeBlock returns the text as a fenced Markdown code block in the
+// language, with a fence of more backticks than any run of them in the text,
+// so the text can't end it
+func CodeBlock(language, text string) string {
+	text = strings.ReplaceAll(text, "\r\n", "\n")
+	if text != "" && !strings.HasSuffix(text, "\n") {
+		text += "\n"
+	}
+	fence := strings.Repeat("`", max(3, longestRun(text, '`')+1))
+	return fence + language + "\n" + text + fence + "\n"
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // PRIVATE METHODS
+
+// longestRun returns the length of the longest run of the character in the
+// text
+func longestRun(text string, c byte) int {
+	longest, run := 0, 0
+	for i := 0; i < len(text); i++ {
+		if text[i] == c {
+			run++
+			longest = max(longest, run)
+		} else {
+			run = 0
+		}
+	}
+	return longest
+}
 
 // validEnd returns the end of the data without a character which is cut off
 // at its end, which is that character's start

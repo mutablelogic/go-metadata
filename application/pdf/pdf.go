@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"maps"
+	"math"
 	"regexp"
 	"slices"
 	"strings"
@@ -103,7 +104,8 @@ func init() {
 // dc:creator, dc:description, dc:subject and dc:date, from its XMP metadata,
 // or its document information when they aren't in its XMP metadata, and its
 // pages, version, producer and creator as pdf:pages, pdf:version,
-// pdf:producer and pdf:creator. A title which is the name of the file the
+// pdf:producer and pdf:creator, and the width and height of its first page,
+// in millimetres, as pdf:width-mm and pdf:height-mm. A title which is the name of the file the
 // document was made from isn't returned, so the title is from the
 // document's own name. A document larger than maxDocumentSize has no
 // properties.
@@ -157,6 +159,10 @@ func pdfMetadata(ctx context.Context, r io.Reader, password string) ([]metadata.
 	}
 	if doc.PageCount > 0 {
 		add(Namespace, "pages", doc.PageCount)
+	}
+	if width, height, ok := firstPageSize(ctx, info); ok {
+		add(Namespace, "width-mm", millimetres(width))
+		add(Namespace, "height-mm", millimetres(height))
 	}
 	if info.Encrypt != nil {
 		add(Namespace, "encrypted", true)
@@ -228,6 +234,32 @@ func readInfo(xRefTable *model.XRefTable) {
 			}
 		}
 	}
+}
+
+// firstPageSize returns the width and height of the document's first page,
+// in points, a 72nd of an inch, which is its crop box, the area of it which
+// is shown, or else its media box, turned by its rotation, or false when it
+// doesn't have one
+func firstPageSize(ctx context.Context, x *model.XRefTable) (float64, float64, bool) {
+	boundaries, err := x.PageBoundaries(ctx, types.IntSet{1: true})
+	if err != nil || len(boundaries) == 0 {
+		return 0, 0, false
+	}
+	box := boundaries[0].CropBox()
+	if box == nil {
+		return 0, 0, false
+	}
+	width, height := box.Width(), box.Height()
+	if boundaries[0].Rot%180 != 0 {
+		width, height = height, width
+	}
+	return width, height, width > 0 && height > 0
+}
+
+// millimetres returns a length in points, a 72nd of an inch, in
+// millimetres, to a tenth of a millimetre
+func millimetres(points float64) float64 {
+	return math.Round(points*25.4/72*10) / 10
 }
 
 // headerVersion returns the version of the document from its header, such

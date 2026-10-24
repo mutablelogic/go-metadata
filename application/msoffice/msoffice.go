@@ -1,7 +1,9 @@
 // Package msoffice registers handlers of the binary Word, Excel and
 // PowerPoint documents from before Office 2007, such as .doc, .xls and .ppt
-// files, which are compound files, which return their properties, and a
-// note that their content can't be read yet
+// files, of Visio drawings and Project plans, such as .vsd and .mpp files,
+// and of Works documents, such as .wps files, which are compound files,
+// which return their properties, and a note that their content can't be
+// read yet
 package msoffice
 
 import (
@@ -48,13 +50,16 @@ const (
 )
 
 var (
-	reContentType = regexp.MustCompile(`^application/(?:msword|vnd\.ms-excel|vnd\.ms-powerpoint)$`)
+	reContentType = regexp.MustCompile(`^application/(?:msword|vnd\.ms-excel|vnd\.ms-powerpoint|vnd\.visio|vnd\.ms-project|vnd\.ms-works)$`)
 
 	// msofficeKinds are the kinds of documents, by their content type
 	msofficeKinds = map[string]string{
 		"application/msword":            dc.KindDocument,
 		"application/vnd.ms-excel":      dc.KindSpreadsheet,
 		"application/vnd.ms-powerpoint": dc.KindPresentation,
+		"application/vnd.visio":         dc.KindDrawing,
+		"application/vnd.ms-project":    dc.KindDocument,
+		"application/vnd.ms-works":      dc.KindDocument,
 	}
 
 	// minTime is the earliest time of a property which is set, as a time
@@ -71,6 +76,12 @@ var msofficeTypes = map[string]string{
 	".ppt": "application/vnd.ms-powerpoint",
 	".pps": "application/vnd.ms-powerpoint",
 	".pot": "application/vnd.ms-powerpoint",
+	".vsd": "application/vnd.visio",
+	".vss": "application/vnd.visio",
+	".vst": "application/vnd.visio",
+	".mpp": "application/vnd.ms-project",
+	".mpt": "application/vnd.ms-project",
+	".wps": "application/vnd.ms-works",
 }
 
 // properties maps the names of the properties of a document to their

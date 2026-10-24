@@ -34,6 +34,7 @@ import (
 	_ "github.com/mutablelogic/go-metadata/application"
 	_ "github.com/mutablelogic/go-metadata/audio"
 	_ "github.com/mutablelogic/go-metadata/image"
+	_ "github.com/mutablelogic/go-metadata/message"
 	_ "github.com/mutablelogic/go-metadata/text"
 	_ "github.com/mutablelogic/go-metadata/video"
 )

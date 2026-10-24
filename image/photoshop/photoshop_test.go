@@ -187,3 +187,31 @@ func Test_photoshop_004(t *testing.T) {
 		}
 	}
 }
+
+// named is a reader with a name, for its extension
+type named struct {
+	*bytes.Reader
+	name string
+}
+
+func (r named) Name() string { return r.name }
+
+func Test_photoshop_signature_000(t *testing.T) {
+	// A document is a Photoshop document from its content, without a name,
+	// without an extension, or with the wrong one
+	data := sample(t)
+	for _, r := range []interface {
+		Read([]byte) (int, error)
+	}{
+		bytes.NewReader(data),
+		named{bytes.NewReader(data), "Logo"},
+		named{bytes.NewReader(data), "logo.bin"},
+		named{bytes.NewReader(data), "logo.psb"},
+	} {
+		if contentType, _, err := metadata.ContentType(r); err != nil {
+			t.Fatal(err)
+		} else if contentType != "image/vnd.adobe.photoshop" {
+			t.Errorf("%v: got %q", r, contentType)
+		}
+	}
+}

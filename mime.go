@@ -1,11 +1,13 @@
 package metadata
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"mime"
 	"net/http"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	// Packages
@@ -63,6 +65,15 @@ func ContentType(r io.Reader) (string, map[string]string, error) {
 		if err != nil {
 			return "", nil, err
 		}
+		// Plain text which starts with the signature of a type of text, such
+		// as {\rtf for RTF, is that type, whatever its extension, such as an
+		// RTF document saved as .doc
+		if contentType == ContentTypeTextPlain {
+			if signed := signatureType(buf[:n]); signed != "" {
+				return mime.ParseMediaType(signed)
+			}
+		}
+
 		// Plain text is refined by the type of text of its extension first,
 		// such as text/x-typescript for .ts, which is otherwise a video, as
 		// is text sniffed as HTML, such as a Vue component, which starts
@@ -82,13 +93,42 @@ func ContentType(r io.Reader) (string, map[string]string, error) {
 		return contentType, params, nil
 	}
 
-	// By extension second
+	// By the bytes it starts with second, such as 8BPS for a Photoshop
+	// document, which is known from its content, whatever its name
+	if contentType := signatureType(buf[:n]); contentType != "" {
+		return mime.ParseMediaType(contentType)
+	}
+
+	// By extension third
 	if extType != "" {
 		return mime.ParseMediaType(extType)
 	}
 
 	// Unknown type
 	return types.ContentTypeBinary, nil, nil
+}
+
+// AddSignature registers the type of content which starts with the prefix,
+// such as image/vnd.adobe.photoshop for 8BPS, or application/rtf for {\rtf,
+// which content which http.DetectContentType detects as binary, or as plain
+// text, has, rather than the type of its extension, so it's detected without
+// its extension, or with the wrong one. The prefix is at most 512 bytes, and
+// the longest prefix which content starts with is its type.
+func AddSignature(prefix []byte, contentType string) error {
+	if len(prefix) == 0 || len(prefix) > 512 {
+		return ErrBadParameter.Withf("invalid signature %q", prefix)
+	} else if mediatype, _, err := mime.ParseMediaType(contentType); err != nil {
+		return ErrBadParameter.Withf("invalid content type %q: %v", contentType, err)
+	} else {
+		contentType = mediatype
+	}
+	signaturesMu.Lock()
+	defer signaturesMu.Unlock()
+	signatures = append(signatures, signature{bytes.Clone(prefix), contentType})
+	slices.SortStableFunc(signatures, func(a, b signature) int {
+		return len(b.prefix) - len(a.prefix)
+	})
+	return nil
 }
 
 // AddTextExtensionType registers the type of text with the extension, such

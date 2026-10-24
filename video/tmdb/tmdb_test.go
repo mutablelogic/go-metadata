@@ -171,6 +171,9 @@ var tags = map[string]map[string]any{
 	// An episode, by its duration
 	"22/The Office S02E01.mp4": {"duration": 22 * time.Minute},
 
+	// A video whose title is a film's whose runtime isn't known
+	"32/Slides.mp4": {"duration": 32 * time.Minute},
+
 	// A show's video, without an episode, by its duration
 	"The Office/Season 2/Pilot.mp4": {"duration": 22 * time.Minute},
 
@@ -715,5 +718,23 @@ func Test_tmdb_010(t *testing.T) {
 		if strings.HasPrefix(request, "/t/p/") {
 			t.Errorf("unexpected request %s", request)
 		}
+	}
+}
+
+func Test_tmdb_011(t *testing.T) {
+	// A film whose runtime isn't known doesn't match a video whose duration
+	// is, such as a talk's slides, which isn't a short from 1919, but does
+	// match a video whose duration isn't known either
+	addTagsHandler()
+	c, _ := newClient(t, map[string]string{
+		"/3/search/movie": `{"page":1,"results":[{"id":1,"title":"Slides","release_date":"1919-12-03"}],"total_pages":1,"total_results":1}`,
+		"/3/movie/1":      `{"id":1,"title":"Slides","release_date":"1919-12-03"}`,
+	})
+	opts := []metadata.Option{metadata.WithTMDB(c), metadata.WithContentType("video/x-test-tags")}
+	if got := lookup(t, "32/Slides.mp4", opts...); len(got) != 0 {
+		t.Errorf("got %v, want nothing", got)
+	}
+	if got := lookup(t, "Slides.mp4", opts...); got["id"] != "1" {
+		t.Errorf("got %v, want the film", got)
 	}
 }

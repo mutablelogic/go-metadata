@@ -709,3 +709,93 @@ func Test_metadata_tmdb_000(t *testing.T) {
 		}
 	}
 }
+
+// addSignatures registers the signatures of two test formats, one of which
+// starts with the other
+var addSignatures = sync.OnceFunc(func() {
+	for prefix, contentType := range map[string]string{
+		"\x00TST":     "application/x-test-signature",
+		"\x00TST\x02": "application/x-test-signature-2",
+		"TSTTEXT":     "application/x-test-text",
+	} {
+		if err := AddSignature([]byte(prefix), contentType); err != nil {
+			panic(err)
+		}
+	}
+})
+
+// signatureReader is a reader with a name, for its extension
+type signatureReader struct {
+	*bytes.Reader
+	name string
+}
+
+func (r signatureReader) Name() string { return r.name }
+
+func Test_signature_000(t *testing.T) {
+	// Binary content is the type of the longest signature it starts with,
+	// rather than of its extension, and text, or other binary content, is
+	// as it was
+	addSignatures()
+	for _, test := range []struct {
+		data, name, want string
+	}{
+		{"\x00TST\x01\x00\x00", "", "application/x-test-signature"},
+		{"\x00TST\x02\x00\x00", "", "application/x-test-signature-2"},
+		{"\x00TST\x01\x00\x00", "file.pdf", "application/x-test-signature"},
+		{"\x00XYZ\x01\x00\x00", "file.pdf", "application/pdf"},
+		{"\x00XYZ\x01\x00\x00", "", "application/octet-stream"},
+		{"TST is plain text", "", "text/plain"},
+
+		// Text which starts with a signature is its type, whatever its
+		// extension
+		{"TSTTEXT is a test document", "", "application/x-test-text"},
+		{"TSTTEXT is a test document", "report.doc", "application/x-test-text"},
+		{"Not TSTTEXT", "report.json", "application/json"},
+	} {
+		contentType, _, err := ContentType(signatureReader{bytes.NewReader([]byte(test.data)), test.name})
+		if err != nil {
+			t.Fatal(err)
+		} else if contentType != test.want {
+			t.Errorf("%q %q: got %q, want %q", test.data, test.name, contentType, test.want)
+		}
+	}
+}
+
+func Test_signature_001(t *testing.T) {
+	// A signature which is empty, or too long, or whose content type isn't
+	// one, is a bad parameter
+	for _, test := range []struct {
+		prefix      []byte
+		contentType string
+	}{
+		{nil, "application/x-test"},
+		{make([]byte, 513), "application/x-test"},
+		{[]byte("XYZ"), "not a content type;;"},
+	} {
+		if err := AddSignature(test.prefix, test.contentType); !errors.Is(err, ErrBadParameter) {
+			t.Errorf("%q %q: expected ErrBadParameter, got %v", test.prefix, test.contentType, err)
+		}
+	}
+}
+
+func Test_ogg_000(t *testing.T) {
+	// Ogg, which is sniffed as application/ogg, is refined by its extension,
+	// as audio or video, and is application/ogg otherwise
+	data := "OggS\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00"
+	for name, want := range map[string]string{
+		"voice.opus":  "audio/ogg",
+		"song.ogg":    "audio/ogg",
+		"speech.spx":  "audio/ogg",
+		"clip.ogv":    "video/ogg",
+		"recording":   "application/ogg",
+		"archive.zip": "application/ogg",
+	} {
+		contentType, _, err := ContentType(signatureReader{bytes.NewReader([]byte(data)), name})
+		if err != nil {
+			t.Fatal(err)
+		} else if contentType != want {
+			t.Errorf("%s: got %q, want %q", name, contentType, want)
+		}
+	}
+}

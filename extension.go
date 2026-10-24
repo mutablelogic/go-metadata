@@ -1,6 +1,7 @@
 package metadata
 
 import (
+	"bytes"
 	"slices"
 	"strings"
 	"sync"
@@ -28,6 +29,12 @@ type extensionRule struct {
 var (
 	textExtensionTypes   = map[string]string{}
 	textExtensionTypesMu sync.RWMutex
+
+	// signatures are the types of binary content which http.DetectContentType
+	// doesn't detect, by the bytes it starts with (see AddSignature), the
+	// longest first
+	signatures   []signature
+	signaturesMu sync.RWMutex
 )
 
 // extensionContentTypes stores extension -> media type mappings and whether
@@ -39,6 +46,14 @@ var extensionContentTypes = map[string]extensionRule{
 	".jpg":  {ContentType: "image/jpeg", Preferred: true},
 	".jpeg": {ContentType: "image/jpeg"},
 	".tga":  {ContentType: "image/x-tga", Preferred: true},
+
+	// Ogg, which is sniffed as application/ogg, is refined by its extension,
+	// as audio, such as Opus voice notes, or video
+	".ogg":  {ContentType: "audio/ogg", Preferred: true},
+	".oga":  {ContentType: "audio/ogg"},
+	".opus": {ContentType: "audio/ogg"},
+	".spx":  {ContentType: "audio/ogg"},
+	".ogv":  {ContentType: "video/ogg", Preferred: true},
 
 	// Playlists, which are text, have different types on each platform
 	".m3u":  {ContentType: "audio/x-mpegurl", Preferred: true},
@@ -59,7 +74,7 @@ var textTypes = []string{"audio/x-mpegurl", "audio/mpegurl", "audio/x-scpls"}
 // types with the excluded suffixes, such as OpenDocument's flat XML
 // documents (.fodt), which are XML
 var (
-	zipTypes         = []string{"application/java-archive", "application/vnd.android.package-archive"}
+	zipTypes         = []string{"application/java-archive", "application/vnd.android.package-archive", "application/vnd.apple.pages", "application/vnd.apple.keynote", "application/vnd.apple.numbers"}
 	zipTypePrefixes  = []string{"application/vnd.openxmlformats-officedocument.", "application/vnd.oasis.opendocument."}
 	zipTypeSuffixes  = []string{"+zip"}
 	zipTypeExcluding = []string{"-flat-xml"}
@@ -98,6 +113,8 @@ func refinesExtension(sniffed, ext string) bool {
 		}
 	case "application/zip":
 		return isZipType(ext)
+	case "application/ogg":
+		return strings.HasPrefix(ext, "audio/") || strings.HasPrefix(ext, "video/")
 	case "image/x-icon":
 		return strings.HasPrefix(ext, "image/") && !slices.Contains(iconTypes, ext)
 	}
@@ -132,4 +149,23 @@ func isZipType(contentType string) bool {
 		}
 	}
 	return false
+}
+
+// signature is the type of binary content which starts with a prefix
+type signature struct {
+	prefix      []byte
+	contentType string
+}
+
+// signatureType returns the type of binary content, by the longest
+// signature which it starts with, or an empty string when none is
+func signatureType(data []byte) string {
+	signaturesMu.RLock()
+	defer signaturesMu.RUnlock()
+	for _, s := range signatures {
+		if bytes.HasPrefix(data, s.prefix) {
+			return s.contentType
+		}
+	}
+	return ""
 }

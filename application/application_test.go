@@ -61,7 +61,8 @@ func Test_application_000(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, want := range expected {
-		if !strings.HasPrefix(want.ContentType, "application/") || (want.Metadata == nil && want.Artwork == nil && want.Markdown == nil) {
+		// A mailbox is read by the handler of the message package
+		if !strings.HasPrefix(want.ContentType, "application/") || want.ContentType == "application/mbox" || (want.Metadata == nil && want.Artwork == nil && want.Markdown == nil) {
 			continue
 		}
 		t.Run(name, func(t *testing.T) {

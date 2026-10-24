@@ -49,9 +49,16 @@ type named struct {
 
 func (r named) Name() string { return r.name }
 
-// document returns a PDF document of one page with the document
+// document returns a PDF document of one A4 page with the document
 // information, and the XMP metadata when it's not empty
 func document(info, xmp string) []byte {
+	return documentWithPage(info, xmp, "/MediaBox [0 0 595 842]")
+}
+
+// documentWithPage returns a PDF document of one page, with the entries of
+// its page's dictionary, such as its media box, with the document
+// information, and the XMP metadata when it's not empty
+func documentWithPage(info, xmp, page string) []byte {
 	catalog := "<< /Type /Catalog /Pages 2 0 R >>"
 	if xmp != "" {
 		catalog = "<< /Type /Catalog /Pages 2 0 R /Metadata 5 0 R >>"
@@ -59,7 +66,7 @@ func document(info, xmp string) []byte {
 	objects := []string{
 		catalog,
 		"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-		"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] >>",
+		"<< /Type /Page /Parent 2 0 R " + page + " >>",
 		"<< " + info + " >>",
 	}
 	if xmp != "" {
@@ -425,5 +432,23 @@ func Test_pdf_010(t *testing.T) {
 	}
 	if _, err := markdown(encrypted.Bytes(), metadata.WithPassword("wrong")); !errors.Is(err, metadata.ErrBadParameter) {
 		t.Errorf("with a wrong password: expected ErrBadParameter, got %v", err)
+	}
+}
+
+func Test_pdf_011(t *testing.T) {
+	// The width and height of the first page, in millimetres, which is its
+	// crop box, or else its media box, turned by its rotation
+	for _, test := range []struct {
+		page, width, height string
+	}{
+		{"/MediaBox [0 0 595 842]", "209.9", "297"},
+		{"/MediaBox [0 0 612 792] /Rotate 90", "279.4", "215.9"},
+		{"/MediaBox [0 0 700 900] /CropBox [50 50 662 842]", "215.9", "279.4"},
+	} {
+		meta, err := entries(t, "page.pdf", documentWithPage(info, "", test.page))
+		if err != nil {
+			t.Fatalf("%s: %v", test.page, err)
+		}
+		expect(t, meta, map[string]string{"pdf:width-mm": test.width, "pdf:height-mm": test.height})
 	}
 }

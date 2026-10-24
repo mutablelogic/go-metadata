@@ -67,8 +67,9 @@ func searchMovie(ctx context.Context, client *tmdb.Client, q tmdb.Query, duratio
 // within runtimeTolerance, or nothing when none is. With the query's year,
 // a result is released within years of it. TMDB's search can't search by
 // runtime, and its results don't have one, so each candidate's runtime is
-// from its details. A duration or runtime of zero isn't known, and matches
-// any.
+// from its details. A duration of zero isn't known, and matches any
+// runtime, but a runtime which isn't known only matches a duration which
+// isn't either.
 func matchMovie(ctx context.Context, client *tmdb.Client, req schema.MovieSearchRequest, q tmdb.Query, duration time.Duration, years int) (*match, error) {
 	resp, err := client.SearchMovies(ctx, req)
 	if err != nil {
@@ -84,7 +85,13 @@ func matchMovie(ctx context.Context, client *tmdb.Client, req schema.MovieSearch
 		} else if err != nil {
 			return nil, err
 		}
-		if runtimeMatches(time.Duration(details.Runtime)*time.Minute, duration, runtimeTolerance) {
+		// A movie whose runtime isn't known isn't the video, whose duration
+		// is, as almost every film's runtime is known, and one whose isn't,
+		// such as a short from 1919, would otherwise match any video
+		runtime := time.Duration(details.Runtime) * time.Minute
+		if duration > 0 && runtime <= 0 {
+			continue
+		} else if runtimeMatches(runtime, duration, runtimeTolerance) {
 			return &match{movie: details}, nil
 		}
 	}

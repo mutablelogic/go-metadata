@@ -83,6 +83,11 @@ func init() {
 		}
 	}
 
+	// A document starts with 8BPS, whatever its name, both PSD and PSB
+	if err := metadata.AddSignature([]byte("8BPS"), contentType); err != nil {
+		panic(err)
+	}
+
 	metadata.AddHandler(reContentType, "photoshop", func(_ context.Context, r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
 		// The kind of a document of an application/ content type, which the
 		// raster images' handler doesn't read
