@@ -79,15 +79,22 @@ endif
 # macOS's
 PKGCONF := PKG_CONFIG_PATH="$(PKG_CONFIG_PATH)" $(PKG_CONFIG)
 
-# The C libraries which aren't found, and whether FFmpeg isn't FFmpeg 8
+# The oldest versions of the C libraries which go-media's bindings compile
+# against, as module:version, such as LibRaw 0.22, which added the JPEG XL
+# and H.265 thumbnails which they use
+CGO_MIN_VERSIONS := libraw:0.22
+
+# The C libraries which aren't found, which are older than they need to be,
+# and whether FFmpeg isn't FFmpeg 8
 FFMPEG_NEXT := $(shell echo $$(($(FFMPEG_VERSION)+1)))
 FFMPEG_INSTALLED := $(if $(PKG_CONFIG),$(shell $(PKGCONF) --modversion libavformat 2>/dev/null | sed 's/^/(libavformat /;s/$$/)/'))
 CGO_MISSING := $(if $(PKG_CONFIG),$(shell for m in $(CGO_MODULES); do $(PKGCONF) --exists $$m || echo $$m; done),$(CGO_MODULES))
+CGO_OLD := $(if $(PKG_CONFIG),$(shell for mv in $(CGO_MIN_VERSIONS); do m=$$(echo $$mv | cut -d: -f1); v=$$(echo $$mv | cut -d: -f2); $(PKGCONF) --exists $$m && ! $(PKGCONF) --atleast-version=$$v $$m && echo "$$m<$$v"; done))
 FFMPEG_WRONG := $(if $(PKG_CONFIG),$(shell $(PKGCONF) --exists libavformat && ! ($(PKGCONF) --atleast-version=$(FFMPEG_VERSION) libavformat && ! $(PKGCONF) --atleast-version=$(FFMPEG_NEXT) libavformat) && echo yes))
 
-# Build with cgo when every C library is found, and FFmpeg is FFmpeg 8, or
-# else without it, unless CGO_ENABLED is set
-CGO_ENABLED ?= $(if $(CGO_MISSING)$(FFMPEG_WRONG),0,1)
+# Build with cgo when every C library is found, and isn't too old, and FFmpeg
+# is FFmpeg 8, or else without it, unless CGO_ENABLED is set
+CGO_ENABLED ?= $(if $(CGO_MISSING)$(CGO_OLD)$(FFMPEG_WRONG),0,1)
 export CGO_ENABLED
 
 # What isn't read without cgo
@@ -105,7 +112,7 @@ cmd: $(CMD_DIR)
 
 $(CMD_DIR): go-dep cgo-dep mkdir
 	@echo Build $(notdir $@) "(CGO_ENABLED=$(CGO_ENABLED))"
-	@$(GO) build -ldflags "-s -w" -o $(BUILD_DIR)/$(notdir $@)$(EXE) ./$@
+	@"$(GO)" build -ldflags "-s -w" -o $(BUILD_DIR)/$(notdir $@)$(EXE) ./$@
 
 # Build the commands without cgo, which don't read audio and video, the EXIF
 # metadata of photos, or HEIF and RAW images
@@ -117,7 +124,7 @@ cmd-nocgo:
 .PHONY: install
 install: go-dep cgo-dep
 	@echo Install $(notdir $(CMD_DIR)) "(CGO_ENABLED=$(CGO_ENABLED))"
-	@$(GO) install -ldflags "-s -w" $(addprefix ./,$(CMD_DIR))
+	@"$(GO)" install -ldflags "-s -w" $(addprefix ./,$(CMD_DIR))
 
 ###############################################################################
 # TESTS
@@ -129,22 +136,22 @@ TEST_PACKAGES := application audio image message text video pkg internal dublinc
 .PHONY: test
 test: go-dep cgo-dep
 	@echo Test "(CGO_ENABLED=$(CGO_ENABLED))"
-	@$(GO) test $(ARGS) ./...
+	@"$(GO)" test $(ARGS) ./...
 
 # Test everything with the race detector, which needs cgo
 .PHONY: test-race
 test-race: go-dep cgo-dep
 	@echo Test with the race detector "(CGO_ENABLED=$(CGO_ENABLED))"
-	@$(GO) test -race $(ARGS) ./...
+	@"$(GO)" test -race $(ARGS) ./...
 
 # Test everything, and report the coverage of each function, and as an HTML
 # page, $(COVERAGE).html
 .PHONY: test-coverage
 test-coverage: go-dep cgo-dep mkdir
 	@echo Test with coverage "(CGO_ENABLED=$(CGO_ENABLED))"
-	@$(GO) test -covermode=atomic -coverpkg=./... -coverprofile=$(COVERAGE).out $(ARGS) ./...
-	@$(GO) tool cover -func=$(COVERAGE).out | tail -1
-	@$(GO) tool cover -html=$(COVERAGE).out -o $(COVERAGE).html
+	@"$(GO)" test -covermode=atomic -coverpkg=./... -coverprofile=$(COVERAGE).out $(ARGS) ./...
+	@"$(GO)" tool cover -func=$(COVERAGE).out | tail -1
+	@"$(GO)" tool cover -html=$(COVERAGE).out -o $(COVERAGE).html
 	@echo Coverage report $(COVERAGE).html
 
 # Test everything without cgo, as it's built when the C libraries aren't
@@ -157,13 +164,13 @@ test-nocgo:
 .PHONY: test-core
 test-core: go-dep cgo-dep
 	@echo Test core "(CGO_ENABLED=$(CGO_ENABLED))"
-	@$(GO) test $(ARGS) .
+	@"$(GO)" test $(ARGS) .
 
 # Test a package and the packages in it, such as make test-image
 .PHONY: $(addprefix test-,$(TEST_PACKAGES))
 $(addprefix test-,$(TEST_PACKAGES)): test-%: go-dep cgo-dep
 	@echo Test $* "(CGO_ENABLED=$(CGO_ENABLED))"
-	@$(GO) test $(ARGS) ./$*/...
+	@"$(GO)" test $(ARGS) ./$*/...
 
 ###############################################################################
 # CHECKS
@@ -171,7 +178,7 @@ $(addprefix test-,$(TEST_PACKAGES)): test-%: go-dep cgo-dep
 # Report the C libraries, and whether the build uses cgo
 .PHONY: deps
 deps: go-dep
-	@echo "Go:         $(shell $(GO) env GOVERSION) $(shell $(GO) env GOOS)/$(shell $(GO) env GOARCH)"
+	@echo "Go:         $(shell "$(GO)" env GOVERSION) $(shell "$(GO)" env GOOS)/$(shell "$(GO)" env GOARCH)"
 	@echo "pkg-config: $(if $(PKG_CONFIG),$(PKG_CONFIG),not found)"
 	@for m in $(CGO_MODULES); do \
 		if [ -n "$(PKG_CONFIG)" ] && $(PKGCONF) --exists $$m; then \
@@ -182,6 +189,7 @@ deps: go-dep
 	done
 	@$(if $(FFMPEG_WRONG),echo "FFmpeg isn't FFmpeg 8 (libavformat $(FFMPEG_VERSION)): on macOS brew install ffmpeg@8$(comma) or set GO_MEDIA_PREFIX")
 	@$(if $(CGO_MISSING),echo "Not found: $(CGO_MISSING)")
+	@$(if $(CGO_OLD),echo "Too old: $(CGO_OLD)")
 	@echo "CGO_ENABLED=$(CGO_ENABLED)"
 	@$(if $(filter 0,$(CGO_ENABLED)),echo "$(NOCGO_NOTE)")
 
@@ -189,7 +197,7 @@ deps: go-dep
 .PHONY: vet
 vet: go-dep cgo-dep
 	@echo Vet "(CGO_ENABLED=$(CGO_ENABLED))"
-	@$(GO) vet ./...
+	@"$(GO)" vet ./...
 
 # Check the code is formatted, and list the files which aren't
 .PHONY: fmt
@@ -201,7 +209,7 @@ fmt: go-dep
 .PHONY: tidy
 tidy: go-dep
 	@echo Tidy
-	@$(GO) mod tidy
+	@"$(GO)" mod tidy
 
 ###############################################################################
 # DEPENDENCIES, ETC
@@ -218,6 +226,12 @@ ifeq ($(CGO_ENABLED),1)
 ifneq ($(CGO_MISSING),)
 	@echo "Can't build with cgo, as these C libraries aren't found: $(CGO_MISSING)"
 	@echo "Install them (see README.md), or build without cgo with CGO_ENABLED=0"
+	@exit 1
+endif
+ifneq ($(CGO_OLD),)
+	@echo "Can't build with cgo, as these C libraries are older than go-media's bindings need: $(CGO_OLD)"
+	@echo "Install newer ones, or build go-media's libraries with make in a clone of it, and set GO_MEDIA_PREFIX to its build/install folder"
+	@echo "Or build without cgo with CGO_ENABLED=0"
 	@exit 1
 endif
 ifneq ($(FFMPEG_WRONG),)
@@ -237,7 +251,7 @@ mkdir:
 clean:
 	@echo Clean
 	@rm -fr $(BUILD_DIR)
-	@$(GO) clean -testcache
+	@"$(GO)" clean -testcache
 
 # List the targets
 .PHONY: help
