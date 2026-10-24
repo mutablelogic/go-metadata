@@ -9,8 +9,8 @@ import (
 
 	// Packages
 	client "github.com/mutablelogic/go-client"
-	tmdb "github.com/mutablelogic/go-media/tmdb/httpclient"
-	schema "github.com/mutablelogic/go-media/tmdb/schema"
+	tmdb "github.com/mutablelogic/go-metadata/pkg/tmdb"
+	schema "github.com/mutablelogic/go-metadata/pkg/tmdb/schema"
 )
 
 // tvStub answers TMDB's TV endpoints with the responses, by path, and

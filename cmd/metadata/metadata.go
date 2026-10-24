@@ -27,6 +27,7 @@ import (
 	term "github.com/charmbracelet/x/term"
 	metadata "github.com/mutablelogic/go-metadata"
 	byterange "github.com/mutablelogic/go-metadata/internal/byterange"
+	tmdb "github.com/mutablelogic/go-metadata/pkg/tmdb"
 	xmp "github.com/mutablelogic/go-metadata/pkg/xmp"
 
 	// Handlers
@@ -50,11 +51,15 @@ type CLI struct {
 	DPI       int      `name:"dpi" help:"The resolution of the images of pages, such as the artwork of scanned pages, which are downscaled to it. By default, it's 150 dpi, and at most 1024 pixels wide or high; when it's set, it's the resolution however large, such as 300 dpi, the usual resolution for OCR."`
 	Namespace []string `name:"ns" xor:"ns" help:"Print only the metadata in these namespaces." sep:","`
 	Password  string   `name:"password" env:"METADATA_PASSWORD" help:"The password of encrypted documents, such as PDF documents which need a password to be opened. Set it in the environment, rather than as a flag, to keep it out of the shell's history."`
+	TMDBKey   string   `name:"tmdb-key" env:"TMDB_TOKEN" help:"The API Read Access Token of TMDB, with which videos are looked up on TMDB, from their names. Set it in the environment, rather than as a flag, to keep it out of the shell's history."`
 	Range     string   `name:"range" placeholder:"FROM:TO" help:"With --markdown, print only the bytes of the Markdown from:to, such as 0:4096, and then 4096:8192, or from:, :to, or : for all of it. By default, it's all of it."`
 	Path      string   `arg:"" name:"path" help:"File, directory, or glob pattern such as 'photos/**/*.jpg' (quoted, so the shell doesn't expand it), of the files to read."`
 
 	// renderer renders Markdown for the terminal, once there is some
 	renderer *glamour.TermRenderer
+
+	// tmdb is the client of TMDB, from --tmdb-key, or nil when it wasn't set
+	tmdb *tmdb.Client
 
 	// offset and limit are the range of the Markdown, from --range, and
 	// paged is true when it was set, so the pages are read in turn
@@ -184,6 +189,15 @@ func (cli *CLI) Validate() error {
 // or Markdown, each file is written once it's read, and as a table, every
 // file is written once they've all been read.
 func (cli *CLI) Run(ctx context.Context) error {
+	// The client of TMDB, with which videos are looked up, when there's a key
+	if cli.TMDBKey != "" {
+		client, err := tmdb.New(cli.TMDBKey)
+		if err != nil {
+			return err
+		}
+		cli.tmdb = client
+	}
+
 	var results []result
 	var errs error
 	var matched bool
@@ -278,6 +292,9 @@ func (cli *CLI) describe(ctx context.Context, r *result) error {
 	}
 	if cli.DPI != 0 {
 		opts = append(opts, metadata.WithImageDPI(cli.DPI))
+	}
+	if cli.tmdb != nil {
+		opts = append(opts, metadata.WithTMDB(cli.tmdb))
 	}
 	switch {
 	case cli.Artwork:

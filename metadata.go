@@ -74,6 +74,10 @@ type entry struct {
 	priority   int
 	namespaces []string
 	handler    HandlerFunc
+
+	// The namespaces of the metadata of other handlers which the handler
+	// uses, so it runs after them (see AddHandlerAfter)
+	after []string
 }
 
 // result is the metadata which a handler returned, and its priority
@@ -162,6 +166,32 @@ func AddHandlerWithPriority(re *regexp.Regexp, name string, priority int, fn Han
 	handlerlock.Lock()
 	defer handlerlock.Unlock()
 	handlers = append(handlers, entry{name: name, re: re, priority: priority, namespaces: namespaces, handler: fn})
+	cached = make(map[string][]entry)
+}
+
+// AddHandlerAfter adds a metadata handler, as AddHandler does, which uses
+// the metadata of other handlers, in the namespaces after, such as a video's
+// duration in the video namespace. It runs once the handlers which can
+// produce them have finished, and gets their metadata from Opts.Get. Those
+// handlers run even when their namespaces weren't requested, though their
+// metadata isn't returned. A handler doesn't get the metadata of other
+// handlers added with AddHandlerAfter, which run alongside it. The handler
+// has the default priority, DefaultPriority.
+func AddHandlerAfter(re *regexp.Regexp, name string, after []string, fn HandlerFunc, namespaces ...string) {
+	AddHandlerAfterWithPriority(re, name, DefaultPriority, after, fn, namespaces...)
+}
+
+// AddHandlerAfterWithPriority adds a metadata handler which uses the
+// metadata of other handlers, as AddHandlerAfter does, with a priority, as
+// AddHandlerWithPriority does, such as a handler whose title is better than
+// the title of the handlers which ran first.
+func AddHandlerAfterWithPriority(re *regexp.Regexp, name string, priority int, after []string, fn HandlerFunc, namespaces ...string) {
+	if re == nil || fn == nil {
+		panic(ErrBadParameter.With("nil regex or handler"))
+	}
+	handlerlock.Lock()
+	defer handlerlock.Unlock()
+	handlers = append(handlers, entry{name: name, re: re, priority: priority, namespaces: namespaces, handler: fn, after: after})
 	cached = make(map[string][]entry)
 }
 
@@ -265,11 +295,7 @@ func Extract(parent context.Context, r io.Reader, opts ...Option) (_ string, _ [
 	// namespaces. If none, return the title from the name of r
 	var selected []entry
 	if len(o.namespaces) > 0 {
-		for _, entry := range entries {
-			if slices.ContainsFunc(entry.namespaces, o.HasNamespace) {
-				selected = append(selected, entry)
-			}
-		}
+		selected = selectEntries(entries, o.HasNamespace)
 	} else {
 		selected = entries
 	}
@@ -285,6 +311,34 @@ func Extract(parent context.Context, r io.Reader, opts ...Option) (_ string, _ [
 		}
 	}
 
+	// Run the handlers which don't use the metadata of others, and then
+	// those which do, with it
+	first, second := splitEntries(selected)
+	results, errs := run(ctx, o, in, first)
+	if err := ctx.Err(); err != nil {
+		return contentType, nil, err
+	}
+	if len(second) > 0 {
+		after := *o
+		after.prior = combine(slices.Clone(results))
+		more, err := run(ctx, &after, in, second)
+		if err := ctx.Err(); err != nil {
+			return contentType, nil, err
+		}
+		results, errs = append(results, more...), errors.Join(errs, err)
+	}
+
+	// Return the content type, the metadata, and any errors
+	return contentType, o.result(r, combine(results)), errs
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// PRIVATE METHODS
+
+// run runs the handlers concurrently, each with its own section of the
+// input, and returns their metadata, and any errors they returned, or
+// nothing when the context is done first
+func run(ctx context.Context, o *Opts, in *input.Input, selected []entry) ([]result, error) {
 	var (
 		wg      sync.WaitGroup
 		mu      sync.Mutex
@@ -332,15 +386,50 @@ func Extract(parent context.Context, r io.Reader, opts ...Option) (_ string, _ [
 	select {
 	case <-done:
 	case <-ctx.Done():
-		return contentType, nil, ctx.Err()
+		return nil, ctx.Err()
 	}
 
-	// Return the content type, the metadata, and any errors
-	return contentType, o.result(r, combine(results)), errs
+	// Return the metadata, and any errors
+	return results, errs
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// PRIVATE METHODS
+// selectEntries returns the entries which can produce a requested
+// namespace, and those which can produce the namespaces which they use the
+// metadata of (see AddHandlerAfter)
+func selectEntries(entries []entry, requested func(string) bool) []entry {
+	var selected []entry
+	var after []string
+	for _, entry := range entries {
+		if slices.ContainsFunc(entry.namespaces, requested) {
+			selected = append(selected, entry)
+			after = append(after, entry.after...)
+		}
+	}
+	if len(after) == 0 {
+		return selected
+	}
+	for _, entry := range entries {
+		if len(entry.after) == 0 && !slices.ContainsFunc(entry.namespaces, requested) && slices.ContainsFunc(entry.namespaces, func(ns string) bool {
+			return slices.Contains(after, ns)
+		}) {
+			selected = append(selected, entry)
+		}
+	}
+	return selected
+}
+
+// splitEntries returns the entries which don't use the metadata of others,
+// and those which do (see AddHandlerAfter)
+func splitEntries(entries []entry) (first, second []entry) {
+	for _, entry := range entries {
+		if len(entry.after) == 0 {
+			first = append(first, entry)
+		} else {
+			second = append(second, entry)
+		}
+	}
+	return first, second
+}
 
 // getEntries returns all registered entries matching contentType, caching
 // the result until the next AddHandler call.

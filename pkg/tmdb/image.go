@@ -3,6 +3,7 @@ package tmdb
 import (
 	"bytes"
 	"context"
+	"strconv"
 	"strings"
 
 	// Packages
@@ -26,8 +27,37 @@ const (
 	SizeOriginal = "original"
 )
 
+// The widths, in pixels, of the sizes of posters, backdrops and stills which
+// TMDB has, smallest first, other than the original
+var (
+	posterWidths   = []int{92, 154, 185, 342, 500, 780}
+	backdropWidths = []int{300, 780, 1280}
+	stillWidths    = []int{92, 185, 300}
+)
+
 ///////////////////////////////////////////////////////////////////////////////
 // PUBLIC METHODS
+
+// PosterSize returns the smallest size of a poster, whose height is one and
+// a half times its width, whose width and height are at least the
+// dimension, in pixels, when one of them is, or else the original
+func PosterSize(dimension int) string {
+	return imageSize(posterWidths, (dimension*2+2)/3)
+}
+
+// BackdropSize returns the smallest size of a backdrop, which is wider than
+// it's high, whose width is at least the dimension, in pixels, or else the
+// original
+func BackdropSize(dimension int) string {
+	return imageSize(backdropWidths, dimension)
+}
+
+// StillSize returns the smallest size of an episode's still, which is wider
+// than it's high, whose width is at least the dimension, in pixels, or else
+// the original
+func StillSize(dimension int) string {
+	return imageSize(stillWidths, dimension)
+}
 
 // Image returns the image at the path, which is a movie's or show's poster
 // or backdrop path, or an episode's still path, such as
@@ -48,4 +78,18 @@ func (c *Client) Image(ctx context.Context, size, path string) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// PRIVATE METHODS
+
+// imageSize returns the size of the smallest of the widths which is at least
+// the width, or else the original
+func imageSize(widths []int, width int) string {
+	for _, w := range widths {
+		if w >= width {
+			return "w" + strconv.Itoa(w)
+		}
+	}
+	return SizeOriginal
 }

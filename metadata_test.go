@@ -601,3 +601,111 @@ func Test_metadata_018(t *testing.T) {
 		t.Fatal("expected Extract to return when the context is done")
 	}
 }
+
+// addAfterHandlers registers a handler which returns a duration, and two
+// which run after it: one returns the duration as its own metadata, and the
+// other returns whether it saw the metadata of the first
+var addAfterHandlers = sync.OnceFunc(func() {
+	re := regexp.MustCompile(`^application/x-test-after$`)
+	AddHandler(re, "first", func(context.Context, io.Reader, *Opts) ([]Metadata, error) {
+		time.Sleep(10 * time.Millisecond)
+		return []Metadata{meta.New("video", "duration", time.Minute)}, nil
+	}, "video")
+	AddHandlerAfter(re, "after", []string{"video"}, func(_ context.Context, _ io.Reader, o *Opts) ([]Metadata, error) {
+		m := o.Get("video", "duration")
+		if m == nil {
+			return nil, nil
+		}
+		return []Metadata{meta.New("after", "duration", m.Any())}, nil
+	}, "after")
+	AddHandlerAfter(re, "other", []string{"after"}, func(_ context.Context, _ io.Reader, o *Opts) ([]Metadata, error) {
+		return []Metadata{meta.New("other", "seen", o.Get("after", "duration") != nil)}, nil
+	}, "other")
+})
+
+func Test_metadata_after_000(t *testing.T) {
+	// A handler added with AddHandlerAfter gets the metadata of the
+	// handlers which ran first, which run even when their namespaces
+	// weren't requested, but whose metadata isn't returned. It doesn't get
+	// the metadata of another handler added with AddHandlerAfter.
+	addAfterHandlers()
+	tests := []struct {
+		namespaces []string
+		want       map[string]string
+	}{
+		{nil, map[string]string{"video:duration": "1m0s", "after:duration": "1m0s", "other:seen": "false"}},
+		{[]string{"after"}, map[string]string{"after:duration": "1m0s"}},
+		{[]string{"other"}, map[string]string{"other:seen": "false"}},
+	}
+	for _, test := range tests {
+		opts := []Option{WithContentType("application/x-test-after")}
+		if test.namespaces != nil {
+			opts = append(opts, WithNamespace(test.namespaces...))
+		}
+		_, meta, err := Extract(context.Background(), bytes.NewReader(nil), opts...)
+		if err != nil {
+			t.Fatalf("%v: %v", test.namespaces, err)
+		}
+		got := make(map[string]string, len(meta))
+		for _, m := range meta {
+			got[m.NS()+string(Separator)+m.Key()] = m.Value()
+		}
+		if !maps.Equal(got, test.want) {
+			t.Errorf("%v: expected %v, got %v", test.namespaces, test.want, got)
+		}
+	}
+}
+
+// tmdbOpts are the options which the TMDB test handler was last given
+var tmdbOpts struct {
+	sync.Mutex
+	*Opts
+}
+
+// addTMDBHandler registers a handler which records its options
+var addTMDBHandler = sync.OnceFunc(func() {
+	AddHandler(regexp.MustCompile(`^application/x-test-tmdb$`), "tmdb", func(_ context.Context, _ io.Reader, o *Opts) ([]Metadata, error) {
+		tmdbOpts.Lock()
+		defer tmdbOpts.Unlock()
+		tmdbOpts.Opts = o
+		return nil, nil
+	})
+})
+
+func Test_metadata_tmdb_000(t *testing.T) {
+	addTMDBHandler()
+	// A movie or an episode on TMDB is valid, and replaces the other
+	for _, test := range []struct {
+		opts                  []Option
+		err                   bool
+		movie                 uint64
+		show, season, episode uint64
+	}{
+		{opts: []Option{WithTMDBMovie(603)}, movie: 603},
+		{opts: []Option{WithTMDBEpisode(1396, 1, 2)}, show: 1396, season: 1, episode: 2},
+		{opts: []Option{WithTMDBEpisode(1396, 0, 1)}, show: 1396, season: 0, episode: 1},
+		{opts: []Option{WithTMDBMovie(603), WithTMDBEpisode(1396, 1, 2)}, show: 1396, season: 1, episode: 2},
+		{opts: []Option{WithTMDBEpisode(1396, 1, 2), WithTMDBMovie(603)}, movie: 603},
+		{opts: []Option{WithTMDBMovie(0)}, err: true},
+		{opts: []Option{WithTMDBEpisode(0, 1, 2)}, err: true},
+		{opts: []Option{WithTMDBEpisode(1396, 1, 0)}, err: true},
+	} {
+		opts := append(test.opts, WithContentType("application/x-test-tmdb"))
+		_, _, err := Extract(context.Background(), bytes.NewReader(nil), opts...)
+		if test.err {
+			if !errors.Is(err, ErrBadParameter) {
+				t.Errorf("%v: expected ErrBadParameter, got %v", test, err)
+			}
+			continue
+		} else if err != nil {
+			t.Fatal(err)
+		}
+		tmdbOpts.Lock()
+		o := tmdbOpts.Opts
+		tmdbOpts.Unlock()
+		show, season, episode := o.TMDBEpisode()
+		if o.TMDBMovie() != test.movie || show != test.show || season != test.season || episode != test.episode {
+			t.Errorf("%v: got movie %d, episode %d/%d/%d", test, o.TMDBMovie(), show, season, episode)
+		}
+	}
+}

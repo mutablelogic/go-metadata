@@ -32,6 +32,8 @@ const (
 	KindContact      = "contact"      // A contact, such as a person in an address book
 	KindData         = "data"         // Structured data, such as JSON or YAML
 	KindDocument     = "document"     // A document, such as a PDF or Word document, or plain text
+	KindEpisode      = "episode"      // An episode of a TV show
+	KindFilm         = "film"         // A film, such as a movie
 	KindForm         = "form"         // A form, which is filled in
 	KindImage        = "image"        // An image, such as a photo or a drawing
 	KindPresentation = "presentation" // A presentation of slides
@@ -52,6 +54,8 @@ var kindTypes = map[string]string{
 	KindContact:      TypeText,
 	KindData:         TypeDataset,
 	KindDocument:     TypeText,
+	KindEpisode:      TypeMovingImage,
+	KindFilm:         TypeMovingImage,
 	KindForm:         TypeInteractiveResource,
 	KindImage:        TypeStillImage,
 	KindPresentation: TypeText,

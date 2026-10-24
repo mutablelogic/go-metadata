@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	// Packages
-	schema "github.com/mutablelogic/go-media/tmdb/schema"
+	schema "github.com/mutablelogic/go-metadata/pkg/tmdb/schema"
 	types "github.com/mutablelogic/go-server/pkg/types"
 )
 

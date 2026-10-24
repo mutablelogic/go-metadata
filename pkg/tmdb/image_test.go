@@ -10,7 +10,7 @@ import (
 
 	// Packages
 	client "github.com/mutablelogic/go-client"
-	tmdb "github.com/mutablelogic/go-media/tmdb/httpclient"
+	tmdb "github.com/mutablelogic/go-metadata/pkg/tmdb"
 )
 
 // imageStub answers every request with an image, and records the requests
@@ -100,4 +100,29 @@ func Test_quota_000(t *testing.T) {
 			t.Errorf("expected the requests to be limited, took %v", d)
 		}
 	})
+}
+
+func Test_image_001(t *testing.T) {
+	// The smallest size whose largest dimension is at least the dimension
+	for _, test := range []struct {
+		size func(int) string
+		dim  int
+		want string
+	}{
+		{tmdb.PosterSize, 100, "w92"},
+		{tmdb.PosterSize, 138, "w92"},
+		{tmdb.PosterSize, 139, "w154"},
+		{tmdb.PosterSize, 1024, "w780"},
+		{tmdb.PosterSize, 1170, "w780"},
+		{tmdb.PosterSize, 1171, "original"},
+		{tmdb.BackdropSize, 1024, "w1280"},
+		{tmdb.BackdropSize, 300, "w300"},
+		{tmdb.BackdropSize, 2000, "original"},
+		{tmdb.StillSize, 256, "w300"},
+		{tmdb.StillSize, 1024, "original"},
+	} {
+		if got := test.size(test.dim); got != test.want {
+			t.Errorf("%d: got %q, want %q", test.dim, got, test.want)
+		}
+	}
 }

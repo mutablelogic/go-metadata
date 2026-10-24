@@ -2,10 +2,12 @@ package metadata
 
 import (
 	"mime"
+	"slices"
 	"strings"
 
 	// Packages
 	byterange "github.com/mutablelogic/go-metadata/internal/byterange"
+	tmdb "github.com/mutablelogic/go-metadata/pkg/tmdb"
 	types "github.com/mutablelogic/go-server/pkg/types"
 	trace "go.opentelemetry.io/otel/trace"
 )
@@ -40,8 +42,22 @@ type Opts struct {
 	// downscaled to it
 	imageDPI int
 
+	// The client of TMDB, which a handler of videos uses to look up a movie
+	// or TV episode, or nil when it isn't looked up
+	tmdb *tmdb.Client
+
+	// The movie on TMDB which a video is, by its identifier, or the episode,
+	// by its show's identifier, and its season and episode numbers, which
+	// are got rather than looked up, or zero when they aren't known
+	tmdbMovie                         uint64
+	tmdbShow, tmdbSeason, tmdbEpisode uint64
+
 	// Add OTEL tracing
 	tracer trace.Tracer
+
+	// The metadata of the handlers which ran first, which a handler added
+	// with AddHandlerAfter gets
+	prior []Metadata
 }
 
 type Option func(*Opts) error
@@ -153,6 +169,52 @@ func WithImageDPI(dpi int) Option {
 	}
 }
 
+// Set the client of TMDB, which a handler of videos uses to look up the
+// movie or TV episode which a video is, from its name. When not set, videos
+// aren't looked up.
+func WithTMDB(client *tmdb.Client) Option {
+	return func(o *Opts) error {
+		if client == nil {
+			return ErrBadParameter.With("nil TMDB client")
+		}
+		o.tmdb = client
+		return nil
+	}
+}
+
+// Set the movie on TMDB which a video is, by its identifier, such as 603 for
+// The Matrix, which is got rather than looked up from the video's name, when
+// a TMDB client is set (see WithTMDB). It replaces an episode set with
+// WithTMDBEpisode.
+func WithTMDBMovie(id uint64) Option {
+	return func(o *Opts) error {
+		if id == 0 {
+			return ErrBadParameter.With("invalid TMDB movie: 0")
+		}
+		o.tmdbMovie = id
+		o.tmdbShow, o.tmdbSeason, o.tmdbEpisode = 0, 0, 0
+		return nil
+	}
+}
+
+// Set the episode of a TV show on TMDB which a video is, by its show's
+// identifier, such as 1396 for Breaking Bad, and its season and episode
+// numbers, which is got rather than looked up from the video's name, when a
+// TMDB client is set (see WithTMDB). An episode has an identifier of its
+// own, but TMDB gets an episode only by its show, season and episode. The
+// season is zero for a show's specials. It replaces a movie set with
+// WithTMDBMovie.
+func WithTMDBEpisode(show, season, episode uint64) Option {
+	return func(o *Opts) error {
+		if show == 0 || episode == 0 {
+			return ErrBadParameter.Withf("invalid TMDB episode: show %d, episode %d", show, episode)
+		}
+		o.tmdbShow, o.tmdbSeason, o.tmdbEpisode = show, season, episode
+		o.tmdbMovie = 0
+		return nil
+	}
+}
+
 // Return only the metadata from the given namespaces.
 func WithNamespace(ns ...string) Option {
 	return func(o *Opts) error {
@@ -220,4 +282,32 @@ func (o *Opts) Password() string {
 // detected from the reader when it wasn't set.
 func (o *Opts) ContentType() string {
 	return o.contentType
+}
+
+// TMDB returns the client of TMDB set via WithTMDB, or nil when it wasn't
+// set, when videos aren't looked up
+func (o *Opts) TMDB() *tmdb.Client {
+	return o.tmdb
+}
+
+// TMDBMovie returns the identifier of the movie on TMDB set via
+// WithTMDBMovie, or zero when it wasn't set
+func (o *Opts) TMDBMovie() uint64 {
+	return o.tmdbMovie
+}
+
+// TMDBEpisode returns the identifier of the show on TMDB, and the season and
+// episode numbers, set via WithTMDBEpisode, or zeros when they weren't set
+func (o *Opts) TMDBEpisode() (show, season, episode uint64) {
+	return o.tmdbShow, o.tmdbSeason, o.tmdbEpisode
+}
+
+// Get returns the first metadata with the namespace and key from the
+// handlers which ran before this one, or nil when there's none. Only a
+// handler added with AddHandlerAfter gets it, of the namespaces it uses.
+func (o *Opts) Get(ns, key string) Metadata {
+	if i := slices.IndexFunc(o.prior, has(ns, key)); i >= 0 {
+		return o.prior[i]
+	}
+	return nil
 }
