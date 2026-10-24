@@ -4,7 +4,6 @@ package chromaprint
 
 import (
 	"context"
-	"errors"
 	"io"
 	"time"
 )
@@ -15,10 +14,6 @@ import (
 // Enabled is false, as audio is only fingerprinted when it's built with cgo
 // and the chromaprint tag
 const Enabled = false
-
-// ErrNotEnabled is returned by Fingerprint, as audio is only fingerprinted
-// when it's built with cgo and the chromaprint tag
-var ErrNotEnabled = errors.New("chromaprint: not enabled, as it's built without cgo or the chromaprint tag")
 
 ////////////////////////////////////////////////////////////////////////////////
 // PUBLIC METHODS

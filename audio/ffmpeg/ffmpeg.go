@@ -176,11 +176,20 @@ func init() {
 func tagEntries(tags []gomedia.Metadata) []entry {
 	var result []entry
 	values := make(map[string]any)
+	keys := make(map[string]bool)
 	for _, tag := range tags {
 		key, value := sanitizeKey(tag.Key()), strings.TrimSpace(tag.Value())
 		if key == "" || value == "" {
 			continue
 		}
+
+		// A tag with the key of an earlier tag, such as originaldate after
+		// date, which are both audio:year, is skipped, so its values, such
+		// as its dc:date, aren't mixed with the earlier tag's
+		if keys[key] {
+			continue
+		}
+		keys[key] = true
 
 		// A tag can have more than one value of a key, such as a list of
 		// identifiers, but not of a key from an earlier tag

@@ -252,6 +252,16 @@ func Test_tagEntries_001(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %v, want %v", got, want)
 	}
+
+	// A year, and then a date, which is a later tag of the same key, doesn't
+	// mix the year of one with the date of the other
+	got = nil
+	for _, e := range tagEntries([]gomedia.Metadata{tag{"date", "1992"}, tag{"originaldate", "1990-01-01"}}) {
+		got = append(got, fmt.Sprint(e.ns, ":", e.key, "=", e.value))
+	}
+	if want := []string{"audio:year=1992"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
 }
 
 // Test_sanitizeKey_002 checks that binary, repeated and meaningless tags are

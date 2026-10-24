@@ -22,17 +22,10 @@ const (
 	// be fingerprinted
 	sampleRate = 32000
 
-	// MaxDuration is the most of audio which is fingerprinted, which is
-	// enough for AcoustID to match it
-	MaxDuration = 120 * time.Second
+	// Enabled is true, as it's built with cgo and the chromaprint tag, so
+	// audio is fingerprinted
+	Enabled = true
 )
-
-// Enabled is true, as it's built with cgo and the chromaprint tag, so
-// audio is fingerprinted
-const Enabled = true
-
-// ErrNoAudio is returned for audio which has no samples to fingerprint
-var ErrNoAudio = errors.New("no audio to fingerprint")
 
 ////////////////////////////////////////////////////////////////////////////////
 // PUBLIC METHODS

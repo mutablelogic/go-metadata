@@ -20,13 +20,14 @@ const (
 	MetaRecordings Meta = 1 << iota
 
 	// MetaRecordingIDs is the MusicBrainz identifiers of the recordings of a
-	// track, only
+	// track, only, which AcoustID returns in place of MetaRecordings
 	MetaRecordingIDs
 
 	// MetaReleases is the releases of the recordings
 	MetaReleases
 
-	// MetaReleaseIDs is the MusicBrainz identifiers of the releases, only
+	// MetaReleaseIDs is the MusicBrainz identifiers of the releases, only,
+	// which AcoustID returns in place of MetaReleases
 	MetaReleaseIDs
 
 	// MetaReleaseGroups is the release groups of the recordings, such as
@@ -34,7 +35,7 @@ const (
 	MetaReleaseGroups
 
 	// MetaReleaseGroupIDs is the MusicBrainz identifiers of the release
-	// groups, only
+	// groups, only, which AcoustID returns in place of MetaReleaseGroups
 	MetaReleaseGroupIDs
 
 	// MetaTracks is the tracks of the releases, with their positions on the
@@ -42,7 +43,7 @@ const (
 	MetaTracks
 
 	// MetaCompress is a smaller response, without the duplicate metadata of
-	// recordings and releases
+	// recordings and releases, such as the artists of release groups
 	MetaCompress
 
 	// MetaUserMeta is the metadata which users submitted
@@ -54,8 +55,10 @@ const (
 	// MetaNone is no metadata, only the tracks' identifiers and scores
 	MetaNone Meta = 0
 
-	// MetaAll is all the metadata
-	MetaAll = MetaRecordings | MetaRecordingIDs | MetaReleases | MetaReleaseIDs | MetaReleaseGroups | MetaReleaseGroupIDs | MetaTracks | MetaCompress | MetaUserMeta | MetaSources
+	// MetaAll is all the metadata, without the flags which return less of
+	// it: the identifiers only, which AcoustID returns in place of the
+	// metadata, and a compressed response
+	MetaAll = MetaRecordings | MetaReleases | MetaReleaseGroups | MetaTracks | MetaUserMeta | MetaSources
 )
 
 // metaNames are the names of the metadata which AcoustID's meta parameter

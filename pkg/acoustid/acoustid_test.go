@@ -153,7 +153,7 @@ func Test_acoustid_004(t *testing.T) {
 		acoustid.MetaNone:                                "",
 		acoustid.MetaRecordings:                          "recordings",
 		acoustid.MetaRecordingIDs | acoustid.MetaSources: "recordingids sources",
-		acoustid.MetaAll:                                 "recordings recordingids releases releaseids releasegroups releasegroupids tracks compress usermeta sources",
+		acoustid.MetaAll:                                 "recordings releases releasegroups tracks usermeta sources",
 	} {
 		if got := meta.String(); got != want {
 			t.Errorf("%d: got %q, want %q", meta, got, want)
