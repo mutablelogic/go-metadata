@@ -1,0 +1,397 @@
+{
+  "PXL_20250102_172041079.MP.jpg": {
+    "content_type": "image/jpeg"
+  },
+  "RAW_OLYMPUS_E3.ORF": {
+    "content_type": "application/octet-stream"
+  },
+  "audio_22050_1ch_5m35.s16le.sw": {
+    "content_type": "application/octet-stream"
+  },
+  "bridge-2.xmp": {
+    "content_type": "text/plain",
+    "params": {
+      "charset": "utf-8"
+    }
+  },
+  "canon_makernote_variant_1.jpg": {
+    "content_type": "image/jpeg"
+  },
+  "fuji_makernote_variant_1.jpg": {
+    "content_type": "image/jpeg"
+  },
+  "jfk.wav": {
+    "content_type": "audio/wave"
+  },
+  "olympus_makernote_variant_2.jpg": {
+    "content_type": "image/jpeg"
+  },
+  "olympus_makernote_variant_3.jpg": {
+    "content_type": "image/jpeg"
+  },
+  "olympus_makernote_variant_4.jpg": {
+    "content_type": "image/jpeg"
+  },
+  "olympus_makernote_variant_5.jpg": {
+    "content_type": "image/jpeg"
+  },
+  "pdfx-xmp-example.xmp": {
+    "content_type": "text/plain",
+    "params": {
+      "charset": "utf-8"
+    }
+  },
+  "pentax_makernote_variant_2.jpg": {
+    "content_type": "image/jpeg"
+  },
+  "pentax_makernote_variant_3.jpg": {
+    "content_type": "image/jpeg"
+  },
+  "pentax_makernote_variant_4.jpg": {
+    "content_type": "image/jpeg"
+  },
+  "photo.HEIC": {
+    "content_type": "image/heic"
+  },
+  "random-xmp-example.xmp": {
+    "content_type": "text/plain",
+    "params": {
+      "charset": "utf-8"
+    }
+  },
+  "sample.bmp": {
+    "content_type": "image/bmp"
+  },
+  "sample.gif": {
+    "content_type": "image/gif"
+  },
+  "sample.jpg": {
+    "content_type": "image/jpeg"
+  },
+  "sample.mp3": {
+    "content_type": "audio/mpeg"
+  },
+  "sample.psd": {
+    "content_type": "image/vnd.adobe.photoshop"
+  },
+  "sample.mp4": {
+    "content_type": "video/mp4"
+  },
+  "sample.png": {
+    "content_type": "image/png"
+  },
+  "sample.svg": {
+    "content_type": "image/svg+xml",
+    "params": {
+      "charset": "utf-8"
+    }
+  },
+  "sample.tiff": {
+    "content_type": "image/tiff"
+  },
+  "sample.xmp": {
+    "content_type": "text/plain",
+    "params": {
+      "charset": "utf-8"
+    }
+  },
+  "sample_resized.png": {
+    "content_type": "image/png"
+  },
+  "sample_with_artwork.mp3": {
+    "content_type": "audio/mpeg"
+  },
+  "sample_with_artwork.mp4": {
+    "content_type": "video/mp4"
+  },
+  "sample_with_multi_artwork.mp3": {
+    "content_type": "audio/mpeg"
+  },
+  "sample_with_multi_artwork.mp4": {
+    "content_type": "video/mp4"
+  },
+  "test.html": {
+    "content_type": "text/html",
+    "params": {
+      "charset": "utf-8"
+    },
+    "metadata": {
+      "dc:title": "picofuse: picofuse",
+      "dc:type": "Text",
+      "html:generator": "Doxygen 1.8.13",
+      "metadata:kind": "webpage"
+    }
+  },
+  "sample.html": {
+    "content_type": "text/html",
+    "params": {
+      "charset": "utf-8"
+    },
+    "metadata": {
+      "dc:creator": "Ada Lovelace",
+      "dc:date": "2024-05-01T09:00:00Z",
+      "dc:description": "A sample HTML page",
+      "dc:identifier": "https://example.com/sample",
+      "dc:language": "en-GB",
+      "dc:subject": "sample, html",
+      "dc:title": "Café “Sample” Page",
+      "dc:type": "Text",
+      "html:generator": "Handwritten",
+      "html:og-image": "https://example.com/cover.png",
+      "metadata:kind": "webpage"
+    },
+    "markdown": "# Café\n\nSome **bold** text and a [link](https://example.com/).\n\n- one\n- two"
+  },
+  "sample.md": {
+    "content_type": "text/markdown",
+    "params": {
+      "charset": "utf-8"
+    },
+    "metadata": {
+      "dc:creator": "Ada Lovelace, Grace Hopper",
+      "dc:date": "2024-05-01",
+      "dc:description": "A sample Markdown document, with front matter",
+      "dc:language": "en-GB",
+      "dc:subject": "sample, markdown",
+      "dc:title": "Sample Markdown",
+      "dc:type": "Text",
+      "markdown:draft": "false",
+      "markdown:weight": "3",
+      "metadata:kind": "document"
+    },
+    "markdown": "# A Heading, Which Isn't the Title\n\nSome *emphasis*, **strong** text and a [link](https://example.com/).\n\n## A Second Heading\n\n- one\n- two\n"
+  },
+  "sample.txt": {
+    "content_type": "text/plain",
+    "params": {
+      "charset": "utf-8"
+    },
+    "metadata": {
+      "dc:title": "sample",
+      "dc:type": "Text",
+      "metadata:kind": "document"
+    },
+    "markdown": "Café notes\n\nA “quoted” line, with \\*stars\\* and a # hash.  \n    An indented line  \n1\\. Not a list\n"
+  },
+  "sample_with_thumbnails.pdf": {
+    "content_type": "application/pdf",
+    "metadata": {
+      "dc:creator": "Ada Lovelace",
+      "dc:date": "2024-05-01T09:00:00Z",
+      "dc:description": "A sample PDF document, with a thumbnail for each page",
+      "dc:subject": "sample, pdf, thumbnails",
+      "dc:title": "Sample With Thumbnails",
+      "dc:type": "Text",
+      "metadata:kind": "document",
+      "pdf:creator": "genpdf",
+      "pdf:pages": "2",
+      "pdf:producer": "go-metadata",
+      "pdf:version": "1.7"
+    },
+    "artwork": {
+      "artwork:page0001": "image/jpeg",
+      "artwork:page0002": "image/jpeg"
+    },
+    "markdown": "Page One\n\n---\n\nPage Two"
+  },
+  "sample_scanned.pdf": {
+    "content_type": "application/pdf",
+    "metadata": {
+      "dc:creator": "Ada Lovelace",
+      "dc:date": "2024-05-01T09:00:00Z",
+      "dc:title": "Sample Scanned Document",
+      "dc:type": "Text",
+      "metadata:kind": "document",
+      "pdf:creator": "Canon SC1001",
+      "pdf:pages": "3",
+      "pdf:producer": "Canon EPP",
+      "pdf:version": "1.7"
+    },
+    "artwork": {
+      "artwork:page0001": "image/jpeg",
+      "artwork:page0003": "image/jpeg"
+    },
+    "markdown": "A page of text, which is not a scan"
+  },
+  "sample.zip": {
+    "content_type": "application/zip",
+    "metadata": {
+      "archive:comment": "A sample zip file",
+      "archive:directories": "1",
+      "archive:files": "3",
+      "archive:format": "zip",
+      "archive:modified": "2024-05-01T09:00:00Z",
+      "archive:size": "52",
+      "dc:date": "2024-05-01T09:00:00Z",
+      "dc:title": "sample",
+      "dc:type": "Collection",
+      "metadata:kind": "archive"
+    },
+    "markdown": "| Name | Size | Modified |\n| --- | ---: | --- |\n| docs/ |  | 2024-05-01T09:00:00Z |\n| docs/readme.txt | 14 | 2024-05-01T09:00:00Z |\n| docs/notes \\*draft\\* \\| v2.md | 21 | 2024-05-01T09:00:00Z |\n| data.json | 17 | 2024-05-01T09:00:00Z |\n"
+  },
+  "sample.tar": {
+    "content_type": "application/x-tar",
+    "metadata": {
+      "archive:directories": "1",
+      "archive:files": "3",
+      "archive:format": "tar",
+      "archive:modified": "2024-05-01T09:00:00Z",
+      "archive:size": "52",
+      "dc:date": "2024-05-01T09:00:00Z",
+      "dc:title": "sample",
+      "dc:type": "Collection",
+      "metadata:kind": "archive"
+    },
+    "markdown": "| Name | Size | Modified |\n| --- | ---: | --- |\n| docs/ |  | 2024-05-01T09:00:00Z |\n| docs/readme.txt | 14 | 2024-05-01T09:00:00Z |\n| docs/notes \\*draft\\* \\| v2.md | 21 | 2024-05-01T09:00:00Z |\n| data.json | 17 | 2024-05-01T09:00:00Z |\n"
+  },
+  "sample.tar.gz": {
+    "content_type": "application/x-gzip",
+    "metadata": {
+      "archive:directories": "1",
+      "archive:files": "3",
+      "archive:format": "tar+gzip",
+      "archive:modified": "2024-05-01T09:00:00Z",
+      "archive:size": "52",
+      "dc:date": "2024-05-01T09:00:00Z",
+      "dc:title": "sample.tar",
+      "dc:type": "Collection",
+      "metadata:kind": "archive"
+    },
+    "markdown": "| Name | Size | Modified |\n| --- | ---: | --- |\n| docs/ |  | 2024-05-01T09:00:00Z |\n| docs/readme.txt | 14 | 2024-05-01T09:00:00Z |\n| docs/notes \\*draft\\* \\| v2.md | 21 | 2024-05-01T09:00:00Z |\n| data.json | 17 | 2024-05-01T09:00:00Z |\n"
+  },
+  "sample.txt.gz": {
+    "content_type": "application/x-gzip",
+    "metadata": {
+      "archive:directories": "0",
+      "archive:files": "1",
+      "archive:format": "gzip",
+      "archive:modified": "2024-05-01T09:00:00Z",
+      "archive:size": "24",
+      "dc:date": "2024-05-01T09:00:00Z",
+      "dc:title": "sample.txt",
+      "dc:type": "Collection",
+      "metadata:kind": "archive"
+    },
+    "markdown": "| Name | Size | Modified |\n| --- | ---: | --- |\n| notes.txt | 24 | 2024-05-01T09:00:00Z |\n"
+  },
+  "sample.tar.bz2": {
+    "content_type": "application/x-bzip2",
+    "metadata": {
+      "archive:directories": "1",
+      "archive:files": "3",
+      "archive:format": "tar+bzip2",
+      "archive:modified": "2024-05-01T09:00:00Z",
+      "archive:size": "52",
+      "dc:date": "2024-05-01T09:00:00Z",
+      "dc:title": "sample.tar",
+      "dc:type": "Collection",
+      "metadata:kind": "archive"
+    },
+    "markdown": "| Name | Size | Modified |\n| --- | ---: | --- |\n| docs/ |  | 2024-05-01T09:00:00Z |\n| docs/readme.txt | 14 | 2024-05-01T09:00:00Z |\n| docs/notes \\*draft\\* \\| v2.md | 21 | 2024-05-01T09:00:00Z |\n| data.json | 17 | 2024-05-01T09:00:00Z |\n"
+  },
+  "sample.txt.bz2": {
+    "content_type": "application/x-bzip2",
+    "metadata": {
+      "archive:directories": "0",
+      "archive:files": "1",
+      "archive:format": "bzip2",
+      "archive:size": "24",
+      "dc:title": "sample.txt",
+      "dc:type": "Collection",
+      "metadata:kind": "archive"
+    },
+    "markdown": "| Name | Size | Modified |\n| --- | ---: | --- |\n| sample.txt | 24 |  |\n"
+  },
+  "sample.xls": {
+    "content_type": "application/vnd.ms-excel",
+    "metadata": {
+      "dc:creator": "Ada Lovelace",
+      "dc:date": "2024-05-01T09:00:00Z",
+      "dc:description": "A sample document",
+      "dc:subject": "Samples",
+      "dc:title": "Sample Workbook",
+      "dc:type": "Dataset",
+      "metadata:kind": "spreadsheet",
+      "msoffice:application": "Microsoft Excel",
+      "msoffice:company": "Analytical Engines Ltd",
+      "msoffice:keywords": "sample, legacy",
+      "msoffice:last-author": "Grace Hopper",
+      "msoffice:modified": "2024-05-02T10:30:00Z"
+    }
+  },
+  "sample.doc": {
+    "content_type": "application/msword",
+    "metadata": {
+      "dc:creator": "Ada Lovelace",
+      "dc:date": "2024-05-01T09:00:00Z",
+      "dc:description": "A sample document",
+      "dc:subject": "Samples",
+      "dc:title": "sample",
+      "dc:type": "Text",
+      "metadata:kind": "document",
+      "msoffice:application": "Microsoft Office Word",
+      "msoffice:company": "Analytical Engines Ltd",
+      "msoffice:keywords": "sample, legacy",
+      "msoffice:last-author": "Grace Hopper",
+      "msoffice:modified": "2024-05-02T10:30:00Z"
+    }
+  },
+  "sample.odt": {
+    "content_type": "application/vnd.oasis.opendocument.text",
+    "metadata": {
+      "dc:creator": "Ada Lovelace",
+      "dc:date": "2024-05-01T09:00:00Z",
+      "dc:description": "A sample OpenDocument text document",
+      "dc:language": "en-GB",
+      "dc:subject": "Samples",
+      "dc:title": "Sample OpenDocument",
+      "dc:type": "Text",
+      "metadata:kind": "document"
+    },
+    "artwork": {
+      "artwork:thumbnail": "image/png"
+    },
+    "markdown": "# A Heading\n\nSome plain text, with \\*stars\\*.\n\n- one\n- two"
+  },
+  "sample.epub": {
+    "content_type": "application/epub+zip",
+    "metadata": {
+      "dc:creator": "Ada Lovelace",
+      "dc:date": "2024-05-01T00:00:00Z",
+      "dc:description": "A sample book, with two chapters.",
+      "dc:identifier": "9780306406157",
+      "dc:language": "en-GB",
+      "dc:publisher": "Analytical Press",
+      "dc:subject": "Computing, History",
+      "dc:title": "A Sample Book",
+      "dc:type": "Text",
+      "metadata:kind": "book"
+    },
+    "artwork": {
+      "artwork:cover": "image/png"
+    },
+    "markdown": "# Chapter One\n\nIt was a *dark* and stormy night.\n\n---\n\n# Chapter Two\n\n- first\n- second"
+  },
+  "sample.mobi": {
+    "content_type": "application/x-mobipocket-ebook",
+    "metadata": {
+      "dc:creator": "Ada Lovelace, Charles Babbage",
+      "dc:date": "2024-05-01T09:00:00Z",
+      "dc:description": "A sample book & its text.",
+      "dc:identifier": "9780306406157",
+      "dc:language": "en-GB",
+      "dc:publisher": "Analytical Press",
+      "dc:rights": "Public domain",
+      "dc:subject": "Computing, History",
+      "dc:title": "A Sample Kindle Book",
+      "dc:type": "Text",
+      "metadata:kind": "book",
+      "mobi:asin": "B000SAMPLE",
+      "mobi:type": "EBOK"
+    },
+    "artwork": {
+      "artwork:cover": "image/png"
+    },
+    "markdown": "# A Sample Kindle Book\n\nIt was a **bright** cold day in April, and the clocks were striking thirteen. It was a bright cold day in April, again, as the text repeats itself, so it compresses.\n\n## Chapter Two\n\n- first\n- second\n\nCafé au lait, and a \\*star\\*."
+  }
+}

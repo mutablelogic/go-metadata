@@ -1,0 +1,603 @@
+package metadata_test
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"image"
+	"io"
+	"maps"
+	"os"
+	"path/filepath"
+	"regexp"
+	"slices"
+	"strconv"
+	"sync"
+	"testing"
+	"time"
+
+	// Packages
+	. "github.com/mutablelogic/go-metadata"
+	meta "github.com/mutablelogic/go-metadata/internal/meta"
+)
+
+// gifHandler records the content type and header of the last reader it
+// was given
+type gifHandler struct {
+	sync.Mutex
+	contentType string
+	header      []byte
+}
+
+func (h *gifHandler) Extract(_ context.Context, r io.Reader, o *Opts) ([]Metadata, error) {
+	header := make([]byte, 6)
+	if _, err := io.ReadFull(r, header); err != nil {
+		return nil, err
+	}
+	h.Lock()
+	defer h.Unlock()
+	h.contentType, h.header = o.ContentType(), header
+	return nil, nil
+}
+
+var gif = sync.OnceValue(func() *gifHandler {
+	h := new(gifHandler)
+	AddHandler(regexp.MustCompile(`^image/gif$`), "test", h.Extract)
+	return h
+})
+
+func Test_metadata_000(t *testing.T) {
+	// The content type is detected from a file, and the handler still reads
+	// the header, without moving the file's position
+	h := gif()
+	f, err := os.Open(filepath.Join(TEST_DIR, "sample.gif"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	if _, _, err := Extract(context.Background(), f); err != nil {
+		t.Fatal(err)
+	}
+	if h.contentType != "image/gif" {
+		t.Fatalf("expected image/gif, got %q", h.contentType)
+	}
+	if !bytes.HasPrefix(h.header, []byte("GIF8")) {
+		t.Fatalf("expected a GIF header, got %q", h.header)
+	}
+	if pos, err := f.Seek(0, io.SeekCurrent); err != nil {
+		t.Fatal(err)
+	} else if pos != 0 {
+		t.Fatalf("expected the file at position 0, got %d", pos)
+	}
+}
+
+func Test_metadata_001(t *testing.T) {
+	// The content type is detected for a reader which is not seekable, and
+	// the handler still reads the header
+	h := gif()
+	data, err := os.ReadFile(filepath.Join(TEST_DIR, "sample.gif"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := Extract(context.Background(), io.MultiReader(bytes.NewReader(data))); err != nil {
+		t.Fatal(err)
+	}
+	if h.contentType != "image/gif" {
+		t.Fatalf("expected image/gif, got %q", h.contentType)
+	}
+	if !bytes.HasPrefix(h.header, []byte("GIF8")) {
+		t.Fatalf("expected a GIF header, got %q", h.header)
+	}
+}
+
+func Test_metadata_002(t *testing.T) {
+	// The content type is set, without its parameters, for a reader which
+	// is not seekable
+	h := gif()
+	data, err := os.ReadFile(filepath.Join(TEST_DIR, "sample.gif"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := Extract(context.Background(), io.MultiReader(bytes.NewReader(data)), WithContentType("Image/GIF; foo=bar")); err != nil {
+		t.Fatal(err)
+	}
+	if h.contentType != "image/gif" {
+		t.Fatalf("expected image/gif, got %q", h.contentType)
+	}
+	if !bytes.HasPrefix(h.header, []byte("GIF8")) {
+		t.Fatalf("expected a GIF header, got %q", h.header)
+	}
+}
+
+func Test_metadata_003(t *testing.T) {
+	// An invalid content type is a bad parameter
+	_, _, err := Extract(context.Background(), bytes.NewReader(nil), WithContentType(""))
+	if !errors.Is(err, ErrBadParameter) {
+		t.Fatalf("expected ErrBadParameter, got %v", err)
+	}
+}
+
+func Test_metadata_004(t *testing.T) {
+	// A stream is copied to a temporary file, so every handler can seek in
+	// it, and the file is removed when done
+	const size = 1 << 20
+	temp := t.TempDir()
+	t.Setenv("TMPDIR", temp)
+
+	addStreamHandlers()
+	_, meta, err := Extract(context.Background(), stream(size), WithContentType("application/x-test-stream"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := keys(meta), []string{"test:1048576", "test:1048576"}; !slices.Equal(got, want) {
+		t.Fatalf("expected two handlers to seek to %v, got %v", want, got)
+	}
+	assertEmpty(t, temp)
+}
+
+func Test_metadata_005(t *testing.T) {
+	// An input larger than the maximum size is a bad parameter, and a
+	// stream's temporary file is removed
+	temp := t.TempDir()
+	t.Setenv("TMPDIR", temp)
+	gif()
+
+	_, _, err := Extract(context.Background(), stream(1000), WithContentType("image/gif"), WithMaxSize(999))
+	if !errors.Is(err, ErrBadParameter) {
+		t.Fatalf("expected ErrBadParameter, got %v", err)
+	}
+	assertEmpty(t, temp)
+
+	f, err := os.Open(filepath.Join(TEST_DIR, "sample.gif"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if _, _, err := Extract(context.Background(), f, WithMaxSize(10)); !errors.Is(err, ErrBadParameter) {
+		t.Fatalf("expected ErrBadParameter, got %v", err)
+	}
+
+	// An input of the maximum size is read
+	addStreamHandlers()
+	if _, _, err := Extract(context.Background(), stream(1000), WithContentType("application/x-test-stream"), WithMaxSize(1000)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func Test_metadata_006(t *testing.T) {
+	// A stream isn't copied when there are no handlers for its content type
+	temp := t.TempDir()
+	t.Setenv("TMPDIR", temp)
+	pr, pw := io.Pipe()
+	defer pw.Close()
+	_, _, err := Extract(context.Background(), pr, WithContentType("application/x-test-none"))
+	if !errors.Is(err, ErrNotImplemented) {
+		t.Fatalf("expected ErrNotImplemented, got %v", err)
+	}
+	assertEmpty(t, temp)
+}
+
+// addStreamHandlers registers handlers which seek to the end of their
+// reader, and return its size as the key of their metadata
+var addStreamHandlers = sync.OnceFunc(func() {
+	seekEnd := func(_ context.Context, r io.Reader, _ *Opts) ([]Metadata, error) {
+		seeker, ok := r.(io.ReadSeeker)
+		if !ok {
+			return nil, errors.New("expected a seekable reader")
+		}
+		n, err := seeker.Seek(0, io.SeekEnd)
+		if err != nil {
+			return nil, err
+		}
+		return []Metadata{testMeta{"test", strconv.FormatInt(n, 10)}}, nil
+	}
+	re := regexp.MustCompile(`^application/x-test-stream$`)
+	AddHandler(re, "a", seekEnd)
+	AddHandler(re, "b", seekEnd)
+})
+
+// stream returns a reader of size zero bytes, which can't be seeked
+func stream(size int64) io.Reader {
+	return io.MultiReader(io.LimitReader(zeros{}, size))
+}
+
+// assertEmpty fails when dir isn't empty
+func assertEmpty(t *testing.T, dir string) {
+	t.Helper()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) > 0 {
+		t.Fatalf("expected %s to be empty, got %v", dir, entries)
+	}
+}
+
+// zeros is an endless stream of zero bytes
+type zeros struct{}
+
+func (zeros) Read(p []byte) (int, error) {
+	clear(p)
+	return len(p), nil
+}
+
+// testMeta is metadata in a namespace, with a key, which is the name of the
+// handler which returned it
+type testMeta struct {
+	ns, key string
+}
+
+func (m testMeta) NS() string         { return m.ns }
+func (m testMeta) Key() string        { return m.key }
+func (m testMeta) Value() string      { return m.key }
+func (m testMeta) Bytes() []byte      { return []byte(m.key) }
+func (m testMeta) Image() image.Image { return nil }
+func (m testMeta) Any() any           { return m.key }
+
+// returns returns a handler which returns metadata with its name as the key,
+// in each of the namespaces, or the test namespace when there are none, and
+// err
+func returns(name string, err error, namespaces ...string) HandlerFunc {
+	if len(namespaces) == 0 {
+		namespaces = []string{"test"}
+	}
+	return func(context.Context, io.Reader, *Opts) ([]Metadata, error) {
+		var meta []Metadata
+		for _, ns := range namespaces {
+			meta = append(meta, testMeta{ns, name})
+		}
+		return meta, err
+	}
+}
+
+// keys returns the sorted keys of the metadata, with their namespaces
+func keys(meta []Metadata) []string {
+	var keys []string
+	for _, m := range meta {
+		keys = append(keys, m.NS()+string(Separator)+m.Key())
+	}
+	slices.Sort(keys)
+	return keys
+}
+
+// addNamespaceHandlers registers handlers for different namespaces, which
+// return metadata in each of them, and an artwork handler which, like an
+// expensive handler, runs only when its namespace is explicitly requested
+var addNamespaceHandlers = sync.OnceFunc(func() {
+	re := regexp.MustCompile(`^application/x-test-ns$`)
+	AddHandler(re, "exif", returns("exif", nil, "exif"), "exif")
+	AddHandler(re, "tiff", returns("tiff", nil, "tiff", "xmp"), "tiff", "xmp")
+	AddHandler(re, "any", returns("any", nil))
+	AddHandler(re, "artwork", func(_ context.Context, _ io.Reader, o *Opts) ([]Metadata, error) {
+		if !o.HasNamespace("artwork") {
+			return nil, nil
+		}
+		return []Metadata{testMeta{"artwork", "artwork"}}, nil
+	}, "artwork")
+})
+
+func Test_metadata_007(t *testing.T) {
+	// Only the handlers registered for one of the requested namespaces run,
+	// and only their metadata in the requested namespaces is returned
+	addNamespaceHandlers()
+	tests := []struct {
+		namespaces []string
+		want       []string
+	}{
+		{nil, []string{"exif:exif", "test:any", "tiff:tiff", "xmp:tiff"}},
+		{[]string{"exif"}, []string{"exif:exif"}},
+		{[]string{"xmp"}, []string{"xmp:tiff"}},
+		{[]string{"XMP"}, []string{"xmp:tiff"}},
+		{[]string{"tiff", "exif"}, []string{"exif:exif", "tiff:tiff"}},
+		{[]string{"artwork"}, []string{"artwork:artwork"}},
+		{[]string{"exif", "artwork"}, []string{"artwork:artwork", "exif:exif"}},
+		{[]string{"other"}, nil},
+	}
+	for _, test := range tests {
+		opts := []Option{WithContentType("application/x-test-ns")}
+		if test.namespaces != nil {
+			opts = append(opts, WithNamespace(test.namespaces...))
+		}
+		_, meta, err := Extract(context.Background(), bytes.NewReader(nil), opts...)
+		if err != nil {
+			t.Fatalf("%v: %v", test.namespaces, err)
+		}
+		if got := keys(meta); !slices.Equal(got, test.want) {
+			t.Errorf("%v: expected %v, got %v", test.namespaces, test.want, got)
+		}
+	}
+}
+
+func Test_metadata_008(t *testing.T) {
+	// An invalid namespace is a bad parameter
+	_, _, err := Extract(context.Background(), bytes.NewReader(nil), WithContentType("application/x-test-ns"), WithNamespace("not a namespace"))
+	if !errors.Is(err, ErrBadParameter) {
+		t.Fatalf("expected ErrBadParameter, got %v", err)
+	}
+}
+
+// errA and errB are the errors returned by the error handlers
+var errA, errB = errors.New("a"), errors.New("b")
+
+// addErrorHandlers registers handlers which return metadata, two of which
+// also return an error
+var addErrorHandlers = sync.OnceFunc(func() {
+	re := regexp.MustCompile(`^application/x-test-errors$`)
+	AddHandler(re, "a", returns("a", errA))
+	AddHandler(re, "b", returns("b", errB))
+	AddHandler(re, "c", returns("c", nil))
+})
+
+func Test_metadata_009(t *testing.T) {
+	// The metadata from every handler is returned, along with the errors
+	// of the handlers which failed
+	addErrorHandlers()
+
+	_, meta, err := Extract(context.Background(), bytes.NewReader(nil), WithContentType("application/x-test-errors"))
+	if !errors.Is(err, errA) || !errors.Is(err, errB) {
+		t.Fatalf("expected errors a and b, got %v", err)
+	}
+	if got, want := keys(meta), []string{"test:a", "test:b", "test:c"}; !slices.Equal(got, want) {
+		t.Fatalf("expected %v, got %v", want, got)
+	}
+}
+
+func Test_metadata_010(t *testing.T) {
+	// GetHandlers returns the handlers for a content type, and an unknown
+	// content type has none, and is not implemented by Extract
+	addNamespaceHandlers()
+	if n := len(GetHandlers("application/x-test-ns")); n != 4 {
+		t.Fatalf("expected 4 handlers, got %d", n)
+	}
+	if handlers := GetHandlers("application/x-test-unknown"); handlers != nil {
+		t.Fatalf("expected no handlers, got %d", len(handlers))
+	}
+	_, _, err := Extract(context.Background(), bytes.NewReader(nil), WithContentType("application/x-test-unknown"))
+	if !errors.Is(err, ErrNotImplemented) {
+		t.Fatalf("expected ErrNotImplemented, got %v", err)
+	}
+}
+
+// addCancelHandler registers a handler which returns an error when it runs
+var addCancelHandler = sync.OnceFunc(func() {
+	AddHandler(regexp.MustCompile(`^application/x-test-cancel$`), "cancel", returns("cancel", errors.New("expected the handler not to run")))
+})
+
+func Test_metadata_011(t *testing.T) {
+	// A cancelled context returns its error, without running any handler
+	addCancelHandler()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, _, err := Extract(ctx, bytes.NewReader(nil), WithContentType("application/x-test-cancel"))
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context.Canceled, got %v", err)
+	}
+}
+
+func Test_metadata_012(t *testing.T) {
+	// A nil reader, regex or handler is a bad parameter
+	if _, _, err := Extract(context.Background(), nil); !errors.Is(err, ErrBadParameter) {
+		t.Fatalf("expected ErrBadParameter, got %v", err)
+	}
+	for _, add := range []func(){
+		func() { AddHandler(nil, "nil", returns("nil", nil)) },
+		func() { AddHandler(regexp.MustCompile(`.`), "nil", nil) },
+	} {
+		func() {
+			defer func() {
+				if err, ok := recover().(error); !ok || !errors.Is(err, ErrBadParameter) {
+					t.Errorf("expected a panic with ErrBadParameter, got %v", err)
+				}
+			}()
+			add()
+		}()
+	}
+}
+
+// addTitleHandlers registers a handler which returns no metadata, and a
+// handler which titles the input
+var addTitleHandlers = sync.OnceFunc(func() {
+	AddHandler(regexp.MustCompile(`^application/x-test-untitled$`), "untitled", func(context.Context, io.Reader, *Opts) ([]Metadata, error) {
+		return nil, nil
+	}, "test")
+	AddHandler(regexp.MustCompile(`^application/x-test-titled$`), "titled", returns("title", nil, "dc"), "dc")
+})
+
+func Test_metadata_013(t *testing.T) {
+	// The input is titled from its name, when no handler titled it, and
+	// when the title is in a requested namespace
+	addTitleHandlers()
+	named := func() io.Reader {
+		return namedReader{bytes.NewReader(nil), filepath.Join("photos", "My_Holiday  photo.jpg")}
+	}
+	for _, test := range []struct {
+		r           io.Reader
+		contentType string
+		namespaces  []string
+		want        []string
+	}{
+		{named(), "application/x-test-untitled", nil, []string{"dc:title=My Holiday photo"}},
+		{named(), "application/x-test-titled", nil, []string{"dc:title=title"}},
+		{named(), "application/x-test-untitled", []string{"test"}, nil},
+		{bytes.NewReader(nil), "application/x-test-untitled", nil, nil},
+	} {
+		opts := []Option{WithContentType(test.contentType)}
+		if test.namespaces != nil {
+			opts = append(opts, WithNamespace(test.namespaces...))
+		}
+		_, meta, err := Extract(context.Background(), test.r, opts...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got []string
+		for _, m := range meta {
+			got = append(got, m.NS()+string(Separator)+m.Key()+"="+m.Value())
+		}
+		if !slices.Equal(got, test.want) {
+			t.Errorf("%s %v: expected %v, got %v", test.contentType, test.namespaces, test.want, got)
+		}
+	}
+}
+
+func Test_metadata_014(t *testing.T) {
+	// The content type is returned, with its parameters, whether it was
+	// detected or set
+	gif()
+	f, err := os.Open(filepath.Join(TEST_DIR, "sample.gif"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if contentType, _, err := Extract(context.Background(), f); err != nil {
+		t.Fatal(err)
+	} else if contentType != "image/gif" {
+		t.Fatalf("expected image/gif, got %q", contentType)
+	}
+	addTitleHandlers()
+	if contentType, _, err := Extract(context.Background(), bytes.NewReader(nil), WithContentType("Application/X-Test-Titled; Foo=bar")); err != nil {
+		t.Fatal(err)
+	} else if contentType != "application/x-test-titled; foo=bar" {
+		t.Fatalf("expected application/x-test-titled; foo=bar, got %q", contentType)
+	}
+}
+
+func Test_metadata_015(t *testing.T) {
+	// When there's no handler for the content type, the title from the name
+	// is returned, along with ErrNotImplemented, and the content type
+	r := namedReader{bytes.NewReader(nil), "My_Notes.xyz"}
+	contentType, meta, err := Extract(context.Background(), r, WithContentType("application/x-test-unknown"))
+	if !errors.Is(err, ErrNotImplemented) {
+		t.Fatalf("expected ErrNotImplemented, got %v", err)
+	}
+	if contentType != "application/x-test-unknown" {
+		t.Fatalf("expected application/x-test-unknown, got %q", contentType)
+	}
+	if got, want := keys(meta), []string{"dc:title"}; !slices.Equal(got, want) || meta[0].Value() != "My Notes" {
+		t.Fatalf("expected the title My Notes, got %v", meta)
+	}
+
+	// The title isn't returned when another namespace is requested
+	if _, meta, _ := Extract(context.Background(), r, WithContentType("application/x-test-unknown"), WithNamespace("exif")); len(meta) != 0 {
+		t.Fatalf("expected no metadata, got %v", keys(meta))
+	}
+}
+
+// addKindHandler registers a handler which returns its own kind and type
+var addKindHandler = sync.OnceFunc(func() {
+	AddHandler(regexp.MustCompile(`^application/x-test-kind$`), "kind", func(context.Context, io.Reader, *Opts) ([]Metadata, error) {
+		return KindMetadata("form"), nil
+	}, "metadata", "dc")
+})
+
+func Test_metadata_016(t *testing.T) {
+	// The type and kind of the input are only those a handler returns, in
+	// the requested namespaces, and not from its content type
+	addKindHandler()
+	for _, test := range []struct {
+		contentType string
+		opts        []Option
+		want        map[string]string
+	}{
+		{"application/x-test-unknown", nil, map[string]string{}},
+		{"video/mp4", nil, map[string]string{}},
+		{"application/x-test-kind", nil, map[string]string{"dc:type": "InteractiveResource", "metadata:kind": "form"}},
+		{"application/x-test-kind", []Option{WithNamespace("dc")}, map[string]string{"dc:type": "InteractiveResource"}},
+		{"application/x-test-kind", []Option{WithNamespace("metadata")}, map[string]string{"metadata:kind": "form"}},
+	} {
+		_, meta, _ := Extract(context.Background(), bytes.NewReader(nil), append(test.opts, WithContentType(test.contentType))...)
+		got := map[string]string{}
+		for _, m := range meta {
+			got[m.NS()+string(Separator)+m.Key()] = m.Value()
+		}
+		if !maps.Equal(got, test.want) {
+			t.Errorf("%s: expected %v, got %v", test.contentType, test.want, got)
+		}
+	}
+}
+
+func Test_metadata_017(t *testing.T) {
+	// The metadata of a kind is the kind, and its DCMI type, and none for no
+	// kind
+	got := map[string]string{}
+	for _, m := range KindMetadata("book") {
+		got[m.NS()+string(Separator)+m.Key()] = m.Value()
+	}
+	if want := map[string]string{"metadata:kind": "book", "dc:type": "Text"}; !maps.Equal(got, want) {
+		t.Errorf("expected %v, got %v", want, got)
+	}
+	if got := KindMetadata(""); got != nil {
+		t.Errorf("expected none, got %v", got)
+	}
+}
+
+func Test_metadata_priority_000(t *testing.T) {
+	// The metadata of the handlers with the highest priority is first, and
+	// in place of the metadata with the same namespace and key from those
+	// with a lower priority, but handlers with the same priority each
+	// return theirs
+	re := regexp.MustCompile(`^application/x-test-priority$`)
+	value := func(key, value string) HandlerFunc {
+		return func(context.Context, io.Reader, *Opts) ([]Metadata, error) {
+			return []Metadata{meta.New("test", key, value)}, nil
+		}
+	}
+	AddHandler(re, "low", value("thumbnail", "low"))
+	AddHandler(re, "low-only", value("size", "low"))
+	AddHandlerWithPriority(re, "high", 10, value("thumbnail", "high"))
+	AddHandlerWithPriority(re, "low-negative", -1, value("thumbnail", "negative"))
+	AddHandlerWithPriority(re, "same-a", 5, value("creator", "a"))
+	AddHandlerWithPriority(re, "same-b", 5, value("creator", "b"))
+
+	for i := 0; i < 10; i++ {
+		_, result, err := Extract(context.Background(), bytes.NewReader([]byte("data")), WithContentType("application/x-test-priority"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got []string
+		for _, m := range result {
+			if m.NS() == "test" {
+				got = append(got, m.Key()+"="+m.Value())
+			}
+		}
+		want := []string{"thumbnail=high", "creator=a", "creator=b", "size=low"}
+		if !slices.Equal(got, want) {
+			t.Fatalf("expected %v, got %v", want, got)
+		}
+	}
+}
+
+func Test_metadata_018(t *testing.T) {
+	// When the context is done while a handler which doesn't stop is
+	// running, Extract returns at once, with the context's error, and the
+	// handler carries on in the background
+	started, release := make(chan struct{}), make(chan struct{})
+	defer close(release)
+	AddHandler(regexp.MustCompile(`^application/x-test-blocking$`), "blocking", func(context.Context, io.Reader, *Opts) ([]Metadata, error) {
+		close(started)
+		<-release
+		return KindMetadata("data"), nil
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		<-started
+		cancel()
+	}()
+	done := make(chan error, 1)
+	go func() {
+		_, meta, err := Extract(ctx, bytes.NewReader([]byte("data")), WithContentType("application/x-test-blocking"))
+		if meta != nil {
+			err = errors.Join(err, errors.New("expected no metadata"))
+		}
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Errorf("expected context.Canceled, got %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("expected Extract to return when the context is done")
+	}
+}

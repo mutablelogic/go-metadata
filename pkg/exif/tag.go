@@ -1,0 +1,276 @@
+//go:build cgo
+
+package exif
+
+import (
+	"encoding/binary"
+	"encoding/json"
+	"image"
+	"math"
+	"strings"
+
+	// Package imports
+	libexif "github.com/mutablelogic/go-media/sys/libexif"
+	metadata "github.com/mutablelogic/go-metadata"
+	rational "github.com/mutablelogic/go-metadata/pkg/rational"
+)
+
+////////////////////////////////////////////////////////////////////////////////
+// TYPES
+
+// TagType is the numeric EXIF tag identifier.
+type TagType uint
+
+// IFD identifies which Image File Directory an entry belongs to.
+type IFD uint
+
+type Tag struct {
+	ifd        IFD
+	tag        TagType
+	format     libexif.Format
+	components uint
+	data       []byte
+	order      libexif.ByteOrder
+	str        string
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// PRIVATE CONSTRUCTOR
+
+func newTag(entry *libexif.Entry, ifd libexif.IFD, order libexif.ByteOrder) *Tag {
+	return &Tag{
+		ifd:        IFD(ifd),
+		tag:        TagType(libexif.Exif_entry_get_tag(entry)),
+		format:     libexif.Exif_entry_get_format(entry),
+		components: libexif.Exif_entry_get_components(entry),
+		data:       libexif.Exif_entry_get_data(entry),
+		order:      order,
+		str:        libexif.Exif_entry_get_value(entry),
+	}
+}
+
+var _ metadata.Metadata = (*Tag)(nil)
+
+////////////////////////////////////////////////////////////////////////////////
+// STRINGIFY
+
+// String implements fmt.Stringer.
+func (t *Tag) String() string {
+	return t.str
+}
+
+// MarshalJSON implements json.Marshaler.
+func (t *Tag) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Name       string `json:"name"`
+		Value      string `json:"value"`
+		Tag        uint   `json:"tag"`
+		IFD        string `json:"ifd"`
+		Order      string `json:"order"`
+		Components uint   `json:"components"`
+		Format     string `json:"format"`
+	}{
+		Name:       t.Name(),
+		Value:      t.str,
+		Tag:        uint(t.tag),
+		IFD:        libexif.Exif_ifd_get_name(libexif.IFD(t.ifd)),
+		Order:      libexif.Exif_byte_order_get_name(t.order),
+		Components: t.components,
+		Format:     libexif.Exif_format_get_name(t.format),
+	})
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// PUBLIC METHODS
+
+// Tag returns the numeric tag identifier.
+func (t *Tag) Tag() TagType {
+	return t.tag
+}
+
+// IFD returns which Image File Directory this tag belongs to.
+func (t *Tag) IFD() IFD {
+	return t.ifd
+}
+
+// NS returns "tiff" for IFD0/IFD1 tags and "exif" for EXIF/GPS/Interop tags
+// (implements metadata.Metadata). The namespace aligns with XMP namespace
+// conventions so cross-source lookups work uniformly.
+func (t *Tag) NS() string {
+	switch libexif.IFD(t.ifd) {
+	case libexif.EXIF_IFD_0, libexif.EXIF_IFD_1:
+		return TIFFNamespace
+	default:
+		return EXIFNamespace
+	}
+}
+
+// Key returns the tag name, such as "DateTimeOriginal" (implements
+// metadata.Metadata).
+func (t *Tag) Key() string {
+	return libexif.Exif_tag_get_name_in_ifd(libexif.Tag(t.tag), libexif.IFD(t.ifd))
+}
+
+// Name returns the tag name with its namespace, such as
+// "exif:DateTimeOriginal".
+func (t *Tag) Name() string {
+	return t.NS() + string(metadata.Separator) + t.Key()
+}
+
+// Format returns the EXIF data format of the tag.
+func (t *Tag) Format() libexif.Format {
+	return t.format
+}
+
+// Components returns the number of values in the tag's data array.
+func (t *Tag) Components() uint {
+	return t.components
+}
+
+// Value returns the libexif-formatted string representation of the tag value
+// (implements metadata.Metadata).
+func (t *Tag) Value() string {
+	return t.str
+}
+
+// Bytes returns nil for EXIF tags (implements metadata.Metadata).
+func (t *Tag) Bytes() []byte {
+	return nil
+}
+
+// Image returns nil for EXIF tags (implements metadata.Metadata).
+func (t *Tag) Image() image.Image {
+	return nil
+}
+
+// Any returns the tag's data decoded into an appropriate Go type
+// (implements metadata.Metadata). For single-component tags: uint8, int8, uint16,
+// int16, uint32, int32, rational.Rational (signed or unsigned), float32, float64,
+// or string (ASCII). For multi-component tags the corresponding slice type is
+// returned. UNDEFINED format is returned as []byte.
+func (t *Tag) Any() any {
+	if len(t.data) == 0 {
+		return nil
+	}
+	size := libexif.Exif_format_get_size(t.format)
+	if size == 0 {
+		return nil
+	}
+
+	n := t.components
+	pick := func(i uint) []byte { return t.data[i*size : i*size+size] }
+
+	switch t.format {
+	case libexif.EXIF_FORMAT_ASCII:
+		// The string ends at the first null byte. Cameras often pad a
+		// fixed-size field with null bytes after it.
+		s, _, _ := strings.Cut(string(t.data), "\x00")
+		return s
+	case libexif.EXIF_FORMAT_UNDEFINED:
+		return append([]byte(nil), t.data...)
+	case libexif.EXIF_FORMAT_BYTE:
+		if n == 1 {
+			return t.data[0]
+		}
+		return append([]byte(nil), t.data...)
+	case libexif.EXIF_FORMAT_SBYTE:
+		if n == 1 {
+			return int8(t.data[0])
+		}
+		out := make([]int8, n)
+		for i := range out {
+			out[i] = int8(t.data[i])
+		}
+		return out
+	case libexif.EXIF_FORMAT_SHORT:
+		if n == 1 {
+			return libexif.Exif_get_short(pick(0), t.order)
+		}
+		out := make([]uint16, n)
+		for i := range out {
+			out[i] = libexif.Exif_get_short(pick(uint(i)), t.order)
+		}
+		return out
+	case libexif.EXIF_FORMAT_SSHORT:
+		if n == 1 {
+			return libexif.Exif_get_sshort(pick(0), t.order)
+		}
+		out := make([]int16, n)
+		for i := range out {
+			out[i] = libexif.Exif_get_sshort(pick(uint(i)), t.order)
+		}
+		return out
+	case libexif.EXIF_FORMAT_LONG:
+		if n == 1 {
+			return libexif.Exif_get_long(pick(0), t.order)
+		}
+		out := make([]uint32, n)
+		for i := range out {
+			out[i] = libexif.Exif_get_long(pick(uint(i)), t.order)
+		}
+		return out
+	case libexif.EXIF_FORMAT_SLONG:
+		if n == 1 {
+			return libexif.Exif_get_slong(pick(0), t.order)
+		}
+		out := make([]int32, n)
+		for i := range out {
+			out[i] = libexif.Exif_get_slong(pick(uint(i)), t.order)
+		}
+		return out
+	case libexif.EXIF_FORMAT_RATIONAL:
+		get := func(i uint) rational.Rational {
+			r := libexif.Exif_get_rational(pick(i), t.order)
+			return rational.New(int64(r.Numerator), int64(r.Denominator))
+		}
+		if n == 1 {
+			return get(0)
+		}
+		out := make([]rational.Rational, n)
+		for i := range out {
+			out[i] = get(uint(i))
+		}
+		return out
+	case libexif.EXIF_FORMAT_SRATIONAL:
+		get := func(i uint) rational.Rational {
+			r := libexif.Exif_get_srational(pick(i), t.order)
+			return rational.New(int64(r.Numerator), int64(r.Denominator))
+		}
+		if n == 1 {
+			return get(0)
+		}
+		out := make([]rational.Rational, n)
+		for i := range out {
+			out[i] = get(uint(i))
+		}
+		return out
+	case libexif.EXIF_FORMAT_FLOAT:
+		byteOrder := t.byteOrder()
+		if n == 1 {
+			return math.Float32frombits(byteOrder.Uint32(pick(0)))
+		}
+		out := make([]float32, n)
+		for i := range out {
+			out[i] = math.Float32frombits(byteOrder.Uint32(pick(uint(i))))
+		}
+		return out
+	case libexif.EXIF_FORMAT_DOUBLE:
+		byteOrder := t.byteOrder()
+		if n == 1 {
+			return math.Float64frombits(byteOrder.Uint64(pick(0)))
+		}
+		out := make([]float64, n)
+		for i := range out {
+			out[i] = math.Float64frombits(byteOrder.Uint64(pick(uint(i))))
+		}
+		return out
+	}
+	return nil
+}
+
+func (t *Tag) byteOrder() binary.ByteOrder {
+	if t.order == libexif.EXIF_BYTE_ORDER_MOTOROLA {
+		return binary.BigEndian
+	}
+	return binary.LittleEndian
+}
