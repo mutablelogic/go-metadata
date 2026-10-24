@@ -2,5 +2,6 @@
 // AcoustID looks up (see the acoustid package). It uses the Chromaprint
 // library, and FFmpeg to decode the audio, so it's only built with cgo, and
 // the chromaprint build tag, which the Makefile sets when it finds
-// Chromaprint.
+// Chromaprint. Otherwise, Enabled is false, and Fingerprint returns
+// ErrNotEnabled.
 package chromaprint

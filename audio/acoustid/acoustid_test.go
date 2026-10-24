@@ -9,25 +9,24 @@ import (
 )
 
 func Test_bestResult_000(t *testing.T) {
-	// The best match, when its score is at least the least score
+	// The match with the highest score
 	best := bestResult([]schema.Result{
 		{ID: "a", Score: 0.6},
 		{ID: "b", Score: 0.97},
 		{ID: "c", Score: 0.4},
-	}, minScore)
+	})
 	if best == nil || best.ID != "b" {
 		t.Errorf("unexpected match %v", best)
 	}
 }
 
 func Test_bestResult_001(t *testing.T) {
-	// No matches, or none which are good enough, is no match
+	// No matches, or one without an identifier, is no match
 	for _, results := range [][]schema.Result{
 		nil,
-		{{ID: "a", Score: 0.3}},
 		{{ID: "", Score: 0.9}},
 	} {
-		if best := bestResult(results, minScore); best != nil {
+		if best := bestResult(results); best != nil {
 			t.Errorf("%v: expected no match, got %v", results, best)
 		}
 	}
@@ -53,7 +52,8 @@ func Test_recordingMetadata_000(t *testing.T) {
 			t.Errorf("got %v, want %v", got, want)
 		}
 	}
-	if md := recordingMetadata(&metadata.Opts{}, nil); md != nil {
-		t.Errorf("expected no metadata, got %v", md)
+	// A match without recordings has a note
+	if md := recordingMetadata(&metadata.Opts{}, nil); len(md) != 1 || md[0].Key() != "note" {
+		t.Errorf("expected a note, got %v", md)
 	}
 }

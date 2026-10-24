@@ -3,11 +3,13 @@
 // for its MusicBrainz recording and artist identifiers, when they aren't in
 // its tags: by its AcoustID identifier, when it's in its tags, or else by
 // the fingerprint of its audio, when it's built with cgo and Chromaprint
-// (see the chromaprint package), which is its AcoustID identifier too
+// (see the chromaprint package), which is its AcoustID identifier too. When
+// it can't, such as when nothing matches, its note, acoustid:note, says why.
 package acoustid
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"regexp"
 	"time"
@@ -17,6 +19,7 @@ import (
 	meta "github.com/mutablelogic/go-metadata/internal/meta"
 	acoustid "github.com/mutablelogic/go-metadata/pkg/acoustid"
 	schema "github.com/mutablelogic/go-metadata/pkg/acoustid/schema"
+	chromaprint "github.com/mutablelogic/go-metadata/pkg/chromaprint"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -43,10 +46,6 @@ const (
 
 var (
 	reContentType = regexp.MustCompile(`^audio/.+$`)
-
-	// fingerprint returns the fingerprint of audio, and its duration, which
-	// is set when it's built with cgo and Chromaprint
-	fingerprint func(context.Context, io.Reader) (string, time.Duration, error)
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -70,31 +69,35 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			if best := bestResult(results, 0); best != nil {
-				return recordingMetadata(o, best.Recordings), nil
+			best := bestResult(results)
+			if best == nil {
+				return note("The AcoustID identifier in the tags isn't known to AcoustID."), nil
 			}
-			return nil, nil
+			return recordingMetadata(o, best.Recordings), nil
 		}
 
 		// Otherwise, look up the fingerprint of the audio, and its duration,
 		// for the AcoustID identifier of the best match, when it's good
-		// enough, and its recordings
-		if fingerprint == nil {
-			return nil, nil
+		// enough, and its recordings, when it's built with Chromaprint
+		if !chromaprint.Enabled {
+			return note("The audio wasn't looked up on AcoustID, as metadata was built without Chromaprint, which fingerprints it."), nil
 		}
-		print, duration, err := fingerprint(ctx, r)
+		print, duration, err := chromaprint.Fingerprint(ctx, r)
 		if err != nil {
 			return nil, err
 		} else if print == "" || duration < time.Second {
-			return nil, nil
+			return note("The audio wasn't looked up on AcoustID, as it's shorter than a second."), nil
 		}
 		results, err := client.Lookup(ctx, print, duration, lookupMeta)
 		if err != nil {
 			return nil, err
 		}
-		best := bestResult(results, minScore)
-		if best == nil {
-			return nil, nil
+		best := bestResult(results)
+		switch {
+		case best == nil:
+			return note("No recording on AcoustID matches the fingerprint of the audio."), nil
+		case best.Score < minScore:
+			return note(fmt.Sprintf("The best match on AcoustID, %s, has a score of %.2f, which is less than %.1f, so it may be another recording.", best.ID, best.Score, minScore)), nil
 		}
 		return append([]metadata.Metadata{
 			meta.New(Namespace, "id", best.ID),
@@ -106,24 +109,31 @@ func init() {
 ////////////////////////////////////////////////////////////////////////////////
 // PRIVATE METHODS
 
-// bestResult returns the match with the highest score, when its score is at
-// least min, or nil
-func bestResult(results []schema.Result, min float64) *schema.Result {
+// bestResult returns the match with the highest score, or nil when there
+// are none
+func bestResult(results []schema.Result) *schema.Result {
 	var best *schema.Result
 	for i, result := range results {
 		if best == nil || result.Score > best.Score {
 			best = &results[i]
 		}
 	}
-	if best == nil || best.ID == "" || best.Score < min {
+	if best == nil || best.ID == "" {
 		return nil
 	}
 	return best
 }
 
+// note returns a note of why a recording's MusicBrainz identifiers weren't
+// looked up
+func note(text string) []metadata.Metadata {
+	return []metadata.Metadata{meta.New(Namespace, "note", text)}
+}
+
 // recordingMetadata returns the MusicBrainz identifiers of the recording of
 // a match which most sources have, which is the one AcoustID is surest of,
-// and of its artists, unless they're in the tags
+// and of its artists, unless they're in the tags, or a note when the match
+// has no recordings
 func recordingMetadata(o *metadata.Opts, recordings []schema.Recording) []metadata.Metadata {
 	var best *schema.Recording
 	for i, recording := range recordings {
@@ -132,7 +142,7 @@ func recordingMetadata(o *metadata.Opts, recordings []schema.Recording) []metada
 		}
 	}
 	if best == nil {
-		return nil
+		return note("The match on AcoustID isn't linked to a MusicBrainz recording.")
 	}
 	result := []metadata.Metadata{meta.New(MusicBrainzNamespace, "recording-id", best.ID)}
 	if o.Get(MusicBrainzNamespace, "artist-id") == nil {
