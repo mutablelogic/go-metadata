@@ -1,9 +1,10 @@
 // Package acoustid registers a handler of audio which looks up a recording
 // on AcoustID, when an AcoustID client is set (see metadata.WithAcoustID),
 // for its MusicBrainz recording and artist identifiers, when they aren't in
-// its tags: by its AcoustID identifier, when it's in its tags, or else by
-// the fingerprint of its audio, when it's built with cgo and Chromaprint
-// (see the chromaprint package), which is its AcoustID identifier too. When
+// its tags: by its AcoustID identifier, when it's in its tags, or else, or
+// when it isn't linked to a recording, by the fingerprint of its audio, when
+// it's built with cgo and Chromaprint (see the chromaprint package), whose
+// match is its AcoustID identifier. When
 // it can't, such as when nothing matches, its note, acoustid:note, says why.
 package acoustid
 
@@ -12,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"slices"
 	"time"
 
 	// Packages
@@ -68,23 +70,32 @@ func init() {
 		}
 
 		// The AcoustID identifier is in the tags, so look it up for its
-		// recordings
+		// recordings, and when it isn't known, or has none, look up the
+		// fingerprint instead, which can match another identifier
+		var reason string
 		if id := o.Get(Namespace, "id"); id != nil {
 			results, err := client.LookupTrack(ctx, id.Value(), lookupMeta)
 			if err != nil {
 				return nil, err
 			}
 			best := bestResult(results)
-			if best == nil {
-				return note("The AcoustID identifier in the tags isn't known to AcoustID."), nil
+			switch {
+			case best == nil:
+				reason = "The AcoustID identifier in the tags isn't known to AcoustID"
+			case !hasRecording(best):
+				reason = "The AcoustID identifier in the tags isn't linked to a MusicBrainz recording"
+			default:
+				return recordingMetadata(o, best.Recordings), nil
 			}
-			return recordingMetadata(o, best.Recordings), nil
 		}
 
 		// Otherwise, look up the fingerprint of the audio, and its duration,
 		// for the AcoustID identifier of the best match, when it's good
 		// enough, and its recordings, when it's built with Chromaprint
 		if !chromaprint.Enabled {
+			if reason != "" {
+				return note(reason + ", and the audio wasn't fingerprinted, as metadata was built without Chromaprint."), nil
+			}
 			return note("The audio wasn't looked up on AcoustID, as metadata was built without Chromaprint, which fingerprints it."), nil
 		}
 		print, duration, err := chromaprint.Fingerprint(ctx, r)
@@ -127,6 +138,11 @@ func bestResult(results []schema.Result) *schema.Result {
 		return nil
 	}
 	return best
+}
+
+// hasRecording returns true when a match has a MusicBrainz recording
+func hasRecording(result *schema.Result) bool {
+	return slices.ContainsFunc(result.Recordings, func(r schema.Recording) bool { return r.ID != "" })
 }
 
 // note returns a note of why a recording's MusicBrainz identifiers weren't

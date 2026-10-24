@@ -57,3 +57,19 @@ func Test_recordingMetadata_000(t *testing.T) {
 		t.Errorf("expected a note, got %v", md)
 	}
 }
+
+func Test_hasRecording(t *testing.T) {
+	// A match has a recording when one has an identifier
+	for _, test := range []struct {
+		result schema.Result
+		want   bool
+	}{
+		{schema.Result{ID: "a"}, false},
+		{schema.Result{ID: "a", Recordings: []schema.Recording{{}}}, false},
+		{schema.Result{ID: "a", Recordings: []schema.Recording{{}, {ID: "r"}}}, true},
+	} {
+		if got := hasRecording(&test.result); got != test.want {
+			t.Errorf("%v: got %v, want %v", test.result, got, test.want)
+		}
+	}
+}
