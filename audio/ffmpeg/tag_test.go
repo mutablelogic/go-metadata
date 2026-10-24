@@ -3,7 +3,9 @@
 package ffmpeg
 
 import (
+	"fmt"
 	"image"
+	"reflect"
 	"testing"
 
 	// Packages
@@ -124,7 +126,7 @@ func entryMap(tags ...tag) map[string]string {
 	}
 	result := map[string]string{}
 	for _, e := range tagEntries(in) {
-		result[e.ns+":"+e.key] = e.value
+		result[e.ns+":"+e.key] = fmt.Sprint(e.value)
 	}
 	return result
 }
@@ -200,22 +202,84 @@ func Test_tagEntries_isrc(t *testing.T) {
 	}
 }
 
-// Test_metadataValue checks that a flag, such as audio:compilation, is a
-// bool, and that other tags, and a flag which isn't one, are strings
-func Test_metadataValue(t *testing.T) {
-	tests := []struct {
-		e    entry
-		want any
+// Test_tagValues checks that tags are flags, numbers, counts, dates, lists
+// and ISRCs, and otherwise as they are
+func Test_tagValues(t *testing.T) {
+	for _, test := range []struct {
+		key, value string
+		want       []entry
 	}{
-		{entry{AudioNamespace, "compilation", "1"}, true},
-		{entry{AudioNamespace, "compilation", "0"}, false},
-		{entry{AudioNamespace, "compilation", "true"}, true},
-		{entry{AudioNamespace, "compilation", "yes"}, "yes"},
-		{entry{AudioNamespace, "track", "1"}, "1"},
+		{"audio:compilation", "1", []entry{{"audio", "compilation", true}}},
+		{"audio:compilation", "0", []entry{{"audio", "compilation", false}}},
+		{"audio:compilation", "yes", []entry{{"audio", "compilation", "yes"}}},
+		{"audio:bpm", "104", []entry{{"audio", "bpm", 104}}},
+		{"audio:track", "4/12", []entry{{"audio", "track", 4}, {"audio", "tracks", 12}}},
+		{"audio:track", "4", []entry{{"audio", "track", 4}}},
+		{"audio:track", "A1", []entry{{"audio", "track", "A1"}}},
+		{"audio:disc", "1 / 2", []entry{{"audio", "disc", 1}, {"audio", "discs", 2}}},
+		{"audio:year", "2005", []entry{{"audio", "year", 2005}}},
+		{"audio:year", "1992-09-23", []entry{{"audio", "year", 1992}, {"dc", "date", "1992-09-23"}}},
+		{"audio:year", "1992-09", []entry{{"audio", "year", 1992}, {"dc", "date", "1992-09"}}},
+		{"audio:year", "2009-07-27T20:53:38Z", []entry{{"audio", "year", 2009}, {"dc", "date", "2009-07-27"}}},
+		{"audio:year", "circa 1920", []entry{{"audio", "year", "circa 1920"}}},
+		{"musicbrainz:artist-id", "a/b", []entry{{"musicbrainz", "artist-id", "a"}, {"musicbrainz", "artist-id", "b"}}},
+		{"musicbrainz:artist-id", "a; b", []entry{{"musicbrainz", "artist-id", "a"}, {"musicbrainz", "artist-id", "b"}}},
+		{"audio:isrc", "GBBLK0500180/USWB10002196", []entry{{"dc", "identifier", "GBBLK0500180"}, {"dc", "identifier", "USWB10002196"}}},
+		{"audio:isrc", "GBBLK0500180/bad", []entry{{"dc", "identifier", "GBBLK0500180"}, {"audio", "isrc", "bad"}}},
+		{"audio:genre", "Hip Hop/Rap", []entry{{"audio", "genre", "Hip Hop/Rap"}}},
+	} {
+		if got := tagValues(test.key, test.value); !reflect.DeepEqual(got, test.want) {
+			t.Errorf("%s=%q: got %v, want %v", test.key, test.value, got, test.want)
+		}
 	}
-	for _, test := range tests {
-		if got := test.e.metadataValue(); got != test.want {
-			t.Errorf("%v: got %#v, want %#v", test.e, got, test.want)
+}
+
+// Test_tagEntries_001 checks that a tag's values of a key are all kept, but
+// a key from an earlier tag isn't replaced by a later one
+func Test_tagEntries_001(t *testing.T) {
+	in := []gomedia.Metadata{
+		tag{"MusicBrainz Artist Id", "a/b"},
+		tag{"track", "4/12"},
+		tag{"TRACKTOTAL", "13"},
+		tag{"date", "1992-09-23"},
+		tag{"originaldate", "1990"},
+	}
+	var got []string
+	for _, e := range tagEntries(in) {
+		got = append(got, fmt.Sprint(e.ns, ":", e.key, "=", e.value))
+	}
+	want := []string{"musicbrainz:artist-id=a", "musicbrainz:artist-id=b", "audio:track=4", "audio:tracks=12", "audio:year=1992", "dc:date=1992-09-23"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+// Test_sanitizeKey_002 checks that binary, repeated and meaningless tags are
+// dropped, and that ID3's disc, disc subtitle, remixer and BPM frames are
+// named
+func Test_sanitizeKey_002(t *testing.T) {
+	for in, want := range map[string]string{
+		"id3v2_priv.WM/MediaClassPrimaryID":         "",
+		"id3v2_priv.PeakValue":                      "",
+		"UFIDhttp://www.cddb.com/id3/taginfo1.html": "",
+		"TLEN":            "",
+		"length":          "",
+		"encoding_params": "",
+		"iTunPGAP":        "",
+		"rating":          "",
+		"TFLT":            "",
+		"XXX":             "",
+		"TPA":             "audio:disc",
+		"TPOS":            "audio:disc",
+		"disc":            "audio:disc",
+		"TSST":            "audio:discsubtitle",
+		"TPE4":            "audio:remixer",
+		"TBPM":            "audio:bpm",
+		"TRACKTOTAL":      "audio:tracks",
+		"DISCTOTAL":       "audio:discs",
+	} {
+		if got := sanitizeKey(in); got != want {
+			t.Errorf("sanitizeKey(%q) = %q, want %q", in, got, want)
 		}
 	}
 }

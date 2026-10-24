@@ -347,7 +347,7 @@ func (cli *CLI) describe(ctx context.Context, r *result) error {
 	r.Metadata = notes
 	r.meta = meta
 	for _, m := range meta {
-		r.Metadata[m.NS()+string(metadata.Separator)+m.Key()] = jsonValue(m)
+		r.add(m.NS()+string(metadata.Separator)+m.Key(), jsonValue(m))
 	}
 	if cli.paged {
 		cli.paginate(r)
@@ -527,8 +527,10 @@ func (cli *CLI) writeXMP(w io.Writer, r result) error {
 func (cli *CLI) writeArtwork(w io.Writer, r result) error {
 	var images []metadata.Metadata
 	for _, key := range r.keys {
-		if image, ok := r.Metadata[key].(metadata.Metadata); ok && image.NS() == metadata.ArtworkNamespace && len(image.Bytes()) > 0 {
-			images = append(images, image)
+		for _, v := range values(r.Metadata[key]) {
+			if image, ok := v.(metadata.Metadata); ok && image.NS() == metadata.ArtworkNamespace && len(image.Bytes()) > 0 {
+				images = append(images, image)
+			}
 		}
 	}
 	if len(images) == 0 {
@@ -560,6 +562,7 @@ func (cli *CLI) writeArtwork(w io.Writer, r result) error {
 // value returns the value of the metadata with the key, as a string, which
 // is the value itself, or the value of an entry which marshals its own value
 func (r result) value(key string) (string, bool) {
+	// A key with more than one value doesn't have a value
 	switch v := r.Metadata[key].(type) {
 	case string:
 		return v, true
@@ -571,6 +574,24 @@ func (r result) value(key string) (string, bool) {
 
 ///////////////////////////////////////////////////////////////////////////////
 // PRIVATE FUNCTIONS
+
+// add adds a value of a key, which makes a list of its values when it
+// already has one, such as a recording's artists, but not when it already
+// has the same value, such as a title from more than one handler
+func (r *result) add(key string, value any) {
+	existing, exists := r.Metadata[key]
+	if !exists {
+		r.Metadata[key] = value
+		return
+	}
+	list := values(existing)
+	for _, v := range list {
+		if valueString(v) == valueString(value) {
+			return
+		}
+	}
+	r.Metadata[key] = append(list, value)
+}
 
 // writeFile writes the data to the file, opened with the flags
 func writeFile(path string, flags int, data []byte) error {
@@ -698,13 +719,29 @@ func jsonValue(m metadata.Metadata) any {
 }
 
 // tableValue returns the value of a metadata entry as a single line, which
-// is truncated when it's wider than maxValueWidth
+// is truncated when it's wider than maxValueWidth, and the values of a key
+// with more than one, separated by semicolons
 func tableValue(v any) string {
-	var s string
-	if m, ok := v.(metadata.Metadata); ok {
-		s = m.Value()
-	} else {
-		s = fmt.Sprint(v)
+	var s []string
+	for _, v := range values(v) {
+		s = append(s, valueString(v))
 	}
-	return ansi.Truncate(strings.Join(strings.Fields(s), " "), maxValueWidth, "…")
+	return ansi.Truncate(strings.Join(strings.Fields(strings.Join(s, "; ")), " "), maxValueWidth, "…")
+}
+
+// valueString returns a value of a metadata entry as a string
+func valueString(v any) string {
+	if m, ok := v.(metadata.Metadata); ok {
+		return m.Value()
+	}
+	return fmt.Sprint(v)
+}
+
+// values returns the values of a key, which are a list when it has more
+// than one
+func values(v any) []any {
+	if list, ok := v.([]any); ok {
+		return list
+	}
+	return []any{v}
 }
