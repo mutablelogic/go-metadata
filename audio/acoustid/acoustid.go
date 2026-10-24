@@ -16,6 +16,7 @@ import (
 
 	// Packages
 	metadata "github.com/mutablelogic/go-metadata"
+	dc "github.com/mutablelogic/go-metadata/dublincore"
 	meta "github.com/mutablelogic/go-metadata/internal/meta"
 	acoustid "github.com/mutablelogic/go-metadata/pkg/acoustid"
 	schema "github.com/mutablelogic/go-metadata/pkg/acoustid/schema"
@@ -42,6 +43,10 @@ const (
 	// recordings, with their artists, and how many sources each has, which
 	// is how sure AcoustID is of them
 	lookupMeta = acoustid.MetaRecordings | acoustid.MetaSources
+
+	// priority is the priority of the handler, so its kind, a recording,
+	// is in place of the kind of the handler of audio
+	priority = 10
 )
 
 var (
@@ -56,7 +61,7 @@ func init() {
 	// and artist identifiers, when there's an AcoustID client, and they
 	// aren't in its tags, which runs after the handler of audio, for its
 	// tags
-	metadata.AddHandlerAfter(reContentType, Namespace, []string{Namespace, MusicBrainzNamespace}, func(ctx context.Context, r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
+	metadata.AddHandlerAfterWithPriority(reContentType, Namespace, priority, []string{Namespace, MusicBrainzNamespace}, func(ctx context.Context, r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
 		client := o.AcoustID()
 		if client == nil || o.Get(MusicBrainzNamespace, "recording-id") != nil {
 			return nil, nil
@@ -103,7 +108,7 @@ func init() {
 			meta.New(Namespace, "id", best.ID),
 			meta.New(Namespace, "score", best.Score),
 		}, recordingMetadata(o, best.Recordings)...), nil
-	}, Namespace, MusicBrainzNamespace)
+	}, Namespace, MusicBrainzNamespace, dc.Namespace, metadata.MetadataNamespace)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -132,8 +137,8 @@ func note(text string) []metadata.Metadata {
 
 // recordingMetadata returns the MusicBrainz identifiers of the recording of
 // a match which most sources have, which is the one AcoustID is surest of,
-// and of its artists, unless they're in the tags, or a note when the match
-// has no recordings
+// and of its artists, unless they're in the tags, and its kind, a
+// recording, or a note when the match has no recordings
 func recordingMetadata(o *metadata.Opts, recordings []schema.Recording) []metadata.Metadata {
 	var best *schema.Recording
 	for i, recording := range recordings {
@@ -144,7 +149,7 @@ func recordingMetadata(o *metadata.Opts, recordings []schema.Recording) []metada
 	if best == nil {
 		return note("The match on AcoustID isn't linked to a MusicBrainz recording.")
 	}
-	result := []metadata.Metadata{meta.New(MusicBrainzNamespace, "recording-id", best.ID)}
+	result := append(metadata.KindMetadata(dc.KindRecording), meta.New(MusicBrainzNamespace, "recording-id", best.ID))
 	if o.Get(MusicBrainzNamespace, "artist-id") == nil {
 		for _, artist := range best.Artists {
 			if artist.ID != "" {

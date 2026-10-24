@@ -125,6 +125,10 @@ func init() {
 		if d := rd.Duration(); d > 0 {
 			result = append(result, meta.New(AudioNamespace, "duration", d))
 		}
+		// Audio which MusicBrainz identifies is a recording
+		if slices.ContainsFunc(entries, func(e entry) bool { return e.ns == MusicBrainzNamespace && e.key == recordingIDKey }) {
+			kind = metadata.KindMetadata(dc.KindRecording)
+		}
 		return append(append(result, streamMetadata(rd.Streams())...), kind...), nil
 	}, AudioNamespace, MusicBrainzNamespace, AcoustIDNamespace, dc.Namespace, metadata.MetadataNamespace)
 }

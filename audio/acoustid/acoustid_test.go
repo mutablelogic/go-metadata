@@ -43,7 +43,7 @@ func Test_recordingMetadata_000(t *testing.T) {
 	for _, m := range md {
 		got = append(got, m.NS()+":"+m.Key()+"="+m.Value())
 	}
-	want := []string{"musicbrainz:recording-id=r2", "musicbrainz:artist-id=a1", "musicbrainz:artist-id=a2"}
+	want := []string{"metadata:kind=recording", "dc:type=Sound", "musicbrainz:recording-id=r2", "musicbrainz:artist-id=a1", "musicbrainz:artist-id=a2"}
 	if len(got) != len(want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
