@@ -1,5 +1,7 @@
 # go-metadata
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/mutablelogic/go-metadata.svg)](https://pkg.go.dev/github.com/mutablelogic/go-metadata)
+
 Files carry a lot of information about themselves, in a different format for every kind of
 file: EXIF tags in a photo, ID3 tags in an MP3, document properties in a Word document, a
 `Subject:` header in an email. go-metadata reads them all into one set of metadata, so a
@@ -171,6 +173,8 @@ flag.
 
 ## Using the library
 
+The API reference is on [pkg.go.dev](https://pkg.go.dev/github.com/mutablelogic/go-metadata).
+
 Import the go-metadata package, and the packages of the handlers of the files you want to read,
 which register themselves when they're imported:
 
@@ -240,9 +244,12 @@ register how a type of file is detected, from the bytes it starts with, or the e
 text.
 
 The formats which go-metadata reads are also packages of their own, in `pkg/`, which can be
-used without it, such as `pkg/eml` for email messages, `pkg/mbox` for mailboxes, `pkg/ical` and
-`pkg/vcard` for calendars and contacts, `pkg/rtf`, `pkg/postscript`, `pkg/iwork`, `pkg/exif`,
-`pkg/xmp`, `pkg/tmdb`, `pkg/acoustid` and `pkg/chromaprint`.
+used without it, such as [`pkg/eml`](https://pkg.go.dev/github.com/mutablelogic/go-metadata/pkg/eml) for email messages, [`pkg/mbox`](https://pkg.go.dev/github.com/mutablelogic/go-metadata/pkg/mbox)
+for mailboxes, [`pkg/ical`](https://pkg.go.dev/github.com/mutablelogic/go-metadata/pkg/ical) and [`pkg/vcard`](https://pkg.go.dev/github.com/mutablelogic/go-metadata/pkg/vcard) for calendars and
+contacts, [`pkg/rtf`](https://pkg.go.dev/github.com/mutablelogic/go-metadata/pkg/rtf), [`pkg/postscript`](https://pkg.go.dev/github.com/mutablelogic/go-metadata/pkg/postscript),
+[`pkg/iwork`](https://pkg.go.dev/github.com/mutablelogic/go-metadata/pkg/iwork), [`pkg/exif`](https://pkg.go.dev/github.com/mutablelogic/go-metadata/pkg/exif), [`pkg/xmp`](https://pkg.go.dev/github.com/mutablelogic/go-metadata/pkg/xmp),
+[`pkg/tmdb`](https://pkg.go.dev/github.com/mutablelogic/go-metadata/pkg/tmdb), [`pkg/acoustid`](https://pkg.go.dev/github.com/mutablelogic/go-metadata/pkg/acoustid) and
+[`pkg/chromaprint`](https://pkg.go.dev/github.com/mutablelogic/go-metadata/pkg/chromaprint).
 
 ## License
 
