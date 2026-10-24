@@ -257,7 +257,7 @@ go-metadata is licensed under the **Apache License 2.0**.
 
 > **go-metadata**  
 > [https://github.com/mutablelogic/go-metadata/](https://github.com/mutablelogic/go-metadata/)  
-> Copyright (c) 2026 David Thorpe, All rights reserved.
+> Copyright (c) 2026 The go-metadata authors, All rights reserved.
 
 Under the Apache License 2.0, you are free to use, modify, and distribute this software for any
 purpose, including commercial applications. **Attribution requirement:** When redistributing
