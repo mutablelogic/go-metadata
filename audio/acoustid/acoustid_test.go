@@ -1,10 +1,13 @@
 package acoustid
 
 import (
+	"context"
+	"strings"
 	"testing"
 
 	// Packages
 	metadata "github.com/mutablelogic/go-metadata"
+	acoustid "github.com/mutablelogic/go-metadata/pkg/acoustid"
 	schema "github.com/mutablelogic/go-metadata/pkg/acoustid/schema"
 )
 
@@ -70,6 +73,25 @@ func Test_hasRecording(t *testing.T) {
 	} {
 		if got := hasRecording(&test.result); got != test.want {
 			t.Errorf("%v: got %v, want %v", test.result, got, test.want)
+		}
+	}
+}
+
+func Test_playlist(t *testing.T) {
+	// A playlist isn't looked up, even with a client
+	c, err := acoustid.New("key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, contentType := range []string{"audio/x-mpegurl", "audio/x-scpls"} {
+		_, md, err := metadata.Extract(context.Background(), strings.NewReader("#EXTM3U\nmusic/track01.mp3\n"), metadata.WithAcoustID(c), metadata.WithContentType(contentType), metadata.WithNamespace(Namespace))
+		if err != nil {
+			t.Errorf("%s: unexpected error %v", contentType, err)
+		}
+		for _, m := range md {
+			if m.NS() == Namespace {
+				t.Errorf("%s: unexpected %s:%s", contentType, m.NS(), m.Key())
+			}
 		}
 	}
 }

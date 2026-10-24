@@ -18,6 +18,7 @@ import (
 
 	// Packages
 	metadata "github.com/mutablelogic/go-metadata"
+	playlist "github.com/mutablelogic/go-metadata/audio/playlist"
 	dc "github.com/mutablelogic/go-metadata/dublincore"
 	meta "github.com/mutablelogic/go-metadata/internal/meta"
 	acoustid "github.com/mutablelogic/go-metadata/pkg/acoustid"
@@ -64,8 +65,9 @@ func init() {
 	// aren't in its tags, which runs after the handler of audio, for its
 	// tags
 	metadata.AddHandlerAfterWithPriority(reContentType, Namespace, priority, []string{Namespace, MusicBrainzNamespace}, func(ctx context.Context, r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
+		// A playlist, which is text, isn't audio which can be looked up
 		client := o.AcoustID()
-		if client == nil || o.Get(MusicBrainzNamespace, "recording-id") != nil {
+		if client == nil || playlist.ContentTypes.MatchString(o.ContentType()) || o.Get(MusicBrainzNamespace, "recording-id") != nil {
 			return nil, nil
 		}
 

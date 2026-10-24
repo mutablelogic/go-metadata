@@ -65,7 +65,9 @@ func Fingerprint(ctx context.Context, r io.Reader) (string, time.Duration, error
 		} else if len(data) == 0 {
 			return nil
 		}
-		if err := fp.WritePtr(uintptr(unsafe.Pointer(&data[0])), len(data)); err != nil {
+		// The samples as bytes, which keeps them a Go pointer, rather than a
+		// uintptr, which isn't one
+		if err := fp.Write(unsafe.Slice((*byte)(unsafe.Pointer(&data[0])), len(data)*2)); err != nil {
 			return err
 		}
 		decoded = timestamp + time.Duration(len(data))*time.Second/sampleRate
