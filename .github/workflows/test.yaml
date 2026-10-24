@@ -1,0 +1,109 @@
+name: "Test"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Cancel a run for the same branch or pull request when a new commit
+# supersedes it, rather than running both, as both would build, and save, the
+# same libraries
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Build with go-metadata's go.mod, rather than a workspace
+  GOWORK: "off"
+
+jobs:
+  nocgo:
+    name: Test without cgo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Check formatting
+        run: make fmt
+
+      - name: Vet
+        run: make vet CGO_ENABLED=0
+
+      - name: Run tests
+        run: make test-nocgo
+
+  cgo:
+    name: Test with cgo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          path: go-metadata
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go-metadata/go.mod
+          cache-dependency-path: go-metadata/go.sum
+
+      # The version of go-media in go.mod, whose libraries are built, as its
+      # bindings are for its versions of them
+      - name: Version of go-media
+        id: gomedia
+        working-directory: go-metadata
+        run: echo "version=$(go list -m -f '{{.Version}}' github.com/mutablelogic/go-media)" >> "$GITHUB_OUTPUT"
+
+      # The build tools of the libraries, and the codecs which FFmpeg and
+      # libheif are built with, as go-media's own workflow installs them,
+      # which are needed to link the libraries, so they're installed even
+      # when the libraries are cached
+      - name: Install build tools
+        run: sudo apt -y update && sudo apt -y install nasm cmake libde265-dev libaom-dev libdav1d-dev libxml2-dev liblzma-dev
+
+      # go-media's installed libraries, for its version, which are only
+      # built when they aren't cached, as its Makefile builds them again
+      # whenever it's run
+      - name: Cache go-media's libraries
+        id: cache
+        uses: actions/cache@v6
+        with:
+          path: go-media/build/install
+          key: ${{ runner.os }}-${{ runner.arch }}-go-media-${{ steps.gomedia.outputs.version }}-libraries
+
+      - name: Checkout go-media
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v7
+        with:
+          repository: mutablelogic/go-media
+          ref: ${{ steps.gomedia.outputs.version }}
+          path: go-media
+
+      # FFmpeg 8, libexif, LibRaw and libheif, which go-metadata uses, and
+      # Chromaprint, for audio fingerprinting
+      - name: Build go-media's libraries
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: make -C go-media ffmpeg chromaprint libexif libraw libheif
+
+      - name: Report the libraries
+        working-directory: go-metadata
+        run: make deps GO_MEDIA_PREFIX=${{ github.workspace }}/go-media/build/install
+
+      - name: Vet
+        working-directory: go-metadata
+        run: make vet CGO_ENABLED=1 GO_MEDIA_PREFIX=${{ github.workspace }}/go-media/build/install
+
+      - name: Run tests with the race detector
+        working-directory: go-metadata
+        run: make test-race CGO_ENABLED=1 GO_MEDIA_PREFIX=${{ github.workspace }}/go-media/build/install
