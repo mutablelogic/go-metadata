@@ -24,12 +24,13 @@ libraries, through cgo:
 
 | Handler | C library |
 | --- | --- |
-| Audio and video (`audio/ffmpeg`, `video/ffmpeg`) | FFmpeg 8 or later |
+| Audio and video (`audio/ffmpeg`, `video/ffmpeg`) | FFmpeg 8 |
 | EXIF metadata of photos (`image/exif`) | libexif |
 | HEIF and AVIF images (`image/heif`) | libheif |
 | Camera RAW images (`image/raw`) | LibRaw |
 
-These are only built with cgo. Without it, which is `CGO_ENABLED=0`, or when there's no C
+FFmpeg needs to be FFmpeg 8, which go-media's bindings are for: FFmpeg 9 removed parts of its
+API which they use. These are only built with cgo. Without it, which is `CGO_ENABLED=0`, or when there's no C
 compiler, go-metadata builds without them. It still reads everything else, but returns no
 metadata or artwork from audio and video files, no EXIF metadata from photos, and nothing from
 HEIF and RAW images other than their type and kind.
@@ -40,8 +41,20 @@ development headers and `pkg-config`:
 **macOS** (with [Homebrew](https://brew.sh/)):
 
 ```bash
-brew install pkg-config ffmpeg libexif libheif libraw
+brew install pkg-config ffmpeg@8 libexif libheif libraw
 ```
+
+Homebrew's `ffmpeg@8` is installed alongside its `ffmpeg`, which is FFmpeg 9, so it isn't found
+unless it's on `PKG_CONFIG_PATH`. The Makefile (see below) does that for you; to build with
+`go` itself, set:
+
+```bash
+export PKG_CONFIG_PATH="$(brew --prefix ffmpeg@8)/lib/pkgconfig"
+export CGO_CFLAGS_ALLOW="-Xpreprocessor" CGO_LDFLAGS_ALLOW="-Xpreprocessor"
+```
+
+as Homebrew's LibRaw is built with OpenMP, whose `-Xpreprocessor` flag cgo doesn't allow by
+default.
 
 **Linux** (Debian and Ubuntu):
 
@@ -57,11 +70,12 @@ and on Fedora:
 dnf install gcc pkg-config libexif-devel libheif-devel LibRaw-devel ffmpeg-free-devel
 ```
 
-Many Linux distributions ship a version of FFmpeg older than 8. If yours does,
+Many Linux distributions ship a version of FFmpeg other than 8. If yours does,
 [go-media](https://github.com/mutablelogic/go-media), which go-metadata uses for its C
-bindings, can build FFmpeg and the other libraries from source, as static libraries: run `make`
-in a clone of it, and then set `PKG_CONFIG_PATH` to its `build/install/lib/pkgconfig` folder,
-and `CGO_LDFLAGS_ALLOW="-(W|D).*"`, when you build go-metadata.
+bindings, can build FFmpeg 8 and the other libraries from source, as static libraries: run
+`make` in a clone of it, and then build go-metadata with `make GO_MEDIA_PREFIX=<go-media>/build/install`,
+or with `go` itself, with `PKG_CONFIG_PATH` set to its `build/install/lib/pkgconfig` folder,
+`CGO_LDFLAGS_ALLOW="-(W|D).*"` and `CGO_LDFLAGS="-lstdc++"`.
 
 **Windows** (with [MSYS2](https://www.msys2.org/), in its UCRT64 environment, which provides
 the C compiler too):
@@ -72,8 +86,29 @@ pacman -S mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-pkgconf \
   mingw-w64-ucrt-x86_64-libheif mingw-w64-ucrt-x86_64-libraw
 ```
 
-and build from the UCRT64 shell, with its `bin` folder on your `PATH`. go-metadata is built and
-tested on macOS; on Windows, it's expected to work this way, but isn't tested.
+and build from the UCRT64 shell, with its `bin` folder on your `PATH`, when its FFmpeg is
+FFmpeg 8. go-metadata is built and tested on macOS; on Windows, it's expected to work this way,
+but isn't tested.
+
+### Building with make
+
+In a clone of go-metadata, the Makefile checks for the C libraries with `pkg-config`, and builds
+with cgo when they're all found, and FFmpeg is FFmpeg 8, or else without it:
+
+```bash
+make deps             # Report the C libraries, and whether the build uses cgo
+make                  # Build the metadata command in build/
+make install          # Install the metadata command
+make test             # Test everything
+make test-race        # Test everything with the race detector
+make test-coverage    # Test everything, and report the coverage, in build/coverage.html
+make test-nocgo       # Test everything without cgo
+make test-image       # Test one package, such as image, audio, video, text, pkg, ...
+make help             # List the targets, and the variables which change them
+```
+
+`CGO_ENABLED=0` or `1` builds without or with cgo, whatever is found, `GO_MEDIA_PREFIX` uses
+go-media's static libraries, and `ARGS` are arguments to `go test`, such as `ARGS=-v`.
 
 ## The `metadata` command
 
@@ -83,7 +118,8 @@ Install the `metadata` command with:
 go install github.com/mutablelogic/go-metadata/cmd/metadata@latest
 ```
 
-which builds with cgo when there's a C compiler, or without it with:
+which builds with cgo when there's a C compiler, with the C libraries found as above, or without
+it with:
 
 ```bash
 CGO_ENABLED=0 go install github.com/mutablelogic/go-metadata/cmd/metadata@latest

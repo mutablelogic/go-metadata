@@ -3,7 +3,7 @@
     "content_type": "image/jpeg"
   },
   "RAW_OLYMPUS_E3.ORF": {
-    "content_type": "application/octet-stream"
+    "content_type": "image/x-olympus-orf"
   },
   "audio_22050_1ch_5m35.s16le.sw": {
     "content_type": "application/octet-stream"
