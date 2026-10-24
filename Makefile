@@ -97,6 +97,13 @@ FFMPEG_WRONG := $(if $(PKG_CONFIG),$(shell $(PKGCONF) --exists libavformat && ! 
 CGO_ENABLED ?= $(if $(CGO_MISSING)$(CGO_OLD)$(FFMPEG_WRONG),0,1)
 export CGO_ENABLED
 
+# Chromaprint, for the fingerprints of audio, which are looked up on AcoustID,
+# is optional: with cgo, and when it's found, it's built with the chromaprint
+# tag, or else audio isn't looked up on AcoustID
+CHROMAPRINT := $(if $(filter 1,$(CGO_ENABLED)),$(if $(PKG_CONFIG),$(shell $(PKGCONF) --exists libchromaprint && echo yes)))
+GO_TAGS ?= $(if $(CHROMAPRINT),chromaprint)
+GO_TAGS_FLAG := $(if $(GO_TAGS),-tags "$(GO_TAGS)")
+
 # What isn't read without cgo
 NOCGO_NOTE := without cgo, audio and video, the EXIF metadata of photos, and HEIF and RAW images aren't read
 
@@ -112,7 +119,7 @@ cmd: $(CMD_DIR)
 
 $(CMD_DIR): go-dep cgo-dep mkdir
 	@echo Build $(notdir $@) "(CGO_ENABLED=$(CGO_ENABLED))"
-	@"$(GO)" build -ldflags "-s -w" -o $(BUILD_DIR)/$(notdir $@)$(EXE) ./$@
+	@"$(GO)" build $(GO_TAGS_FLAG) -ldflags "-s -w" -o $(BUILD_DIR)/$(notdir $@)$(EXE) ./$@
 
 # Build the commands without cgo, which don't read audio and video, the EXIF
 # metadata of photos, or HEIF and RAW images
@@ -124,7 +131,7 @@ cmd-nocgo:
 .PHONY: install
 install: go-dep cgo-dep
 	@echo Install $(notdir $(CMD_DIR)) "(CGO_ENABLED=$(CGO_ENABLED))"
-	@"$(GO)" install -ldflags "-s -w" $(addprefix ./,$(CMD_DIR))
+	@"$(GO)" install $(GO_TAGS_FLAG) -ldflags "-s -w" $(addprefix ./,$(CMD_DIR))
 
 ###############################################################################
 # TESTS
@@ -136,20 +143,20 @@ TEST_PACKAGES := application audio image message text video pkg internal dublinc
 .PHONY: test
 test: go-dep cgo-dep
 	@echo Test "(CGO_ENABLED=$(CGO_ENABLED))"
-	@"$(GO)" test $(ARGS) ./...
+	@"$(GO)" test $(GO_TAGS_FLAG) $(ARGS) ./...
 
 # Test everything with the race detector, which needs cgo
 .PHONY: test-race
 test-race: go-dep cgo-dep
 	@echo Test with the race detector "(CGO_ENABLED=$(CGO_ENABLED))"
-	@"$(GO)" test -race $(ARGS) ./...
+	@"$(GO)" test $(GO_TAGS_FLAG) -race $(ARGS) ./...
 
 # Test everything, and report the coverage of each function, and as an HTML
 # page, $(COVERAGE).html
 .PHONY: test-coverage
 test-coverage: go-dep cgo-dep mkdir
 	@echo Test with coverage "(CGO_ENABLED=$(CGO_ENABLED))"
-	@"$(GO)" test -covermode=atomic -coverpkg=./... -coverprofile=$(COVERAGE).out $(ARGS) ./...
+	@"$(GO)" test $(GO_TAGS_FLAG) -covermode=atomic -coverpkg=./... -coverprofile=$(COVERAGE).out $(ARGS) ./...
 	@"$(GO)" tool cover -func=$(COVERAGE).out | tail -1
 	@"$(GO)" tool cover -html=$(COVERAGE).out -o $(COVERAGE).html
 	@echo Coverage report $(COVERAGE).html
@@ -164,13 +171,13 @@ test-nocgo:
 .PHONY: test-core
 test-core: go-dep cgo-dep
 	@echo Test core "(CGO_ENABLED=$(CGO_ENABLED))"
-	@"$(GO)" test $(ARGS) .
+	@"$(GO)" test $(GO_TAGS_FLAG) $(ARGS) .
 
 # Test a package and the packages in it, such as make test-image
 .PHONY: $(addprefix test-,$(TEST_PACKAGES))
 $(addprefix test-,$(TEST_PACKAGES)): test-%: go-dep cgo-dep
 	@echo Test $* "(CGO_ENABLED=$(CGO_ENABLED))"
-	@"$(GO)" test $(ARGS) ./$*/...
+	@"$(GO)" test $(GO_TAGS_FLAG) $(ARGS) ./$*/...
 
 ###############################################################################
 # CHECKS
@@ -191,13 +198,14 @@ deps: go-dep
 	@$(if $(CGO_MISSING),echo "Not found: $(CGO_MISSING)")
 	@$(if $(CGO_OLD),echo "Too old: $(CGO_OLD)")
 	@echo "CGO_ENABLED=$(CGO_ENABLED)"
+	@echo "Chromaprint: $(if $(CHROMAPRINT),$(shell $(PKGCONF) --modversion libchromaprint) (-tags chromaprint),not found$(comma) so audio isn't looked up on AcoustID)"
 	@$(if $(filter 0,$(CGO_ENABLED)),echo "$(NOCGO_NOTE)")
 
 # Check the code with go vet
 .PHONY: vet
 vet: go-dep cgo-dep
 	@echo Vet "(CGO_ENABLED=$(CGO_ENABLED))"
-	@"$(GO)" vet ./...
+	@"$(GO)" vet $(GO_TAGS_FLAG) ./...
 
 # Check the code is formatted, and list the files which aren't
 .PHONY: fmt

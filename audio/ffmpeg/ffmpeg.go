@@ -39,9 +39,10 @@ type entry struct {
 
 const (
 	// The namespaces of the metadata of audio: its tags, duration and codec,
-	// and its MusicBrainz identifiers
+	// and its MusicBrainz and AcoustID identifiers
 	AudioNamespace       = "audio"
 	MusicBrainzNamespace = "musicbrainz"
+	AcoustIDNamespace    = "acoustid"
 
 	// recordingIDKey is the key of a recording's MusicBrainz identifier
 	recordingIDKey = "recording-id"
@@ -125,7 +126,7 @@ func init() {
 			result = append(result, meta.New(AudioNamespace, "duration", d))
 		}
 		return append(append(result, streamMetadata(rd.Streams())...), kind...), nil
-	}, AudioNamespace, MusicBrainzNamespace, dc.Namespace, metadata.MetadataNamespace)
+	}, AudioNamespace, MusicBrainzNamespace, AcoustIDNamespace, dc.Namespace, metadata.MetadataNamespace)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -239,6 +240,14 @@ func sanitizeKey(key string) string {
 		return "audio:year"
 	case "itunes-cddb-tracknumber", "track", "tracknumber":
 		return "audio:track"
+
+	// AcoustID's identifier, which MusicBrainz Picard writes, as Acoustid Id
+	// in an MP3 or MP4 file, and ACOUSTID_ID in a FLAC file, and not its
+	// fingerprint, which is only of use to look up the identifier
+	case "acoustid-id":
+		return "acoustid:id"
+	case "acoustid-fingerprint":
+		return ""
 	}
 
 	// ID3 frames which ffmpeg doesn't name, and its names of the sort tags,

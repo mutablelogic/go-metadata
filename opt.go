@@ -7,6 +7,7 @@ import (
 
 	// Packages
 	byterange "github.com/mutablelogic/go-metadata/internal/byterange"
+	acoustid "github.com/mutablelogic/go-metadata/pkg/acoustid"
 	tmdb "github.com/mutablelogic/go-metadata/pkg/tmdb"
 	types "github.com/mutablelogic/go-server/pkg/types"
 	trace "go.opentelemetry.io/otel/trace"
@@ -51,6 +52,11 @@ type Opts struct {
 	// are got rather than looked up, or zero when they aren't known
 	tmdbMovie                         uint64
 	tmdbShow, tmdbSeason, tmdbEpisode uint64
+
+	// The client of AcoustID, which a handler of audio uses to look up the
+	// AcoustID identifier of a recording, from its fingerprint, or nil when
+	// it isn't looked up
+	acoustid *acoustid.Client
 
 	// Add OTEL tracing
 	tracer trace.Tracer
@@ -182,6 +188,20 @@ func WithTMDB(client *tmdb.Client) Option {
 	}
 }
 
+// Set the client of AcoustID, which a handler of audio uses to look up the
+// AcoustID identifier of a recording which doesn't have one in its tags,
+// from its fingerprint, which is from its tags, or else from its audio,
+// when it's built with Chromaprint. When not set, audio isn't looked up.
+func WithAcoustID(client *acoustid.Client) Option {
+	return func(o *Opts) error {
+		if client == nil {
+			return ErrBadParameter.With("nil AcoustID client")
+		}
+		o.acoustid = client
+		return nil
+	}
+}
+
 // Set the movie on TMDB which a video is, by its identifier, such as 603 for
 // The Matrix, which is got rather than looked up from the video's name, when
 // a TMDB client is set (see WithTMDB). It replaces an episode set with
@@ -288,6 +308,12 @@ func (o *Opts) ContentType() string {
 // set, when videos aren't looked up
 func (o *Opts) TMDB() *tmdb.Client {
 	return o.tmdb
+}
+
+// AcoustID returns the client of AcoustID set via WithAcoustID, or nil when
+// it wasn't set, when audio isn't looked up
+func (o *Opts) AcoustID() *acoustid.Client {
+	return o.acoustid
 }
 
 // TMDBMovie returns the identifier of the movie on TMDB set via

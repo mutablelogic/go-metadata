@@ -74,6 +74,26 @@ func Test_sanitizeKey_musicbrainz(t *testing.T) {
 	}
 }
 
+// Test_sanitizeKey_acoustid checks that AcoustID's tags, as they're spelled
+// in FLAC, MP3 and MP4 files, are mapped onto the acoustid namespace, and
+// that the fingerprint is dropped
+func Test_sanitizeKey_acoustid(t *testing.T) {
+	tests := []struct {
+		in, want string
+	}{
+		{"Acoustid Id", "acoustid:id"},
+		{"ACOUSTID_ID", "acoustid:id"},
+		{"acoustid_id", "acoustid:id"},
+		{"Acoustid Fingerprint", ""},
+		{"ACOUSTID_FINGERPRINT", ""},
+	}
+	for _, test := range tests {
+		if got := sanitizeKey(test.in); got != test.want {
+			t.Errorf("sanitizeKey(%q) = %q, want %q", test.in, got, test.want)
+		}
+	}
+}
+
 // Test_sanitizeKey_001 checks that noisy/uninteresting tags are dropped.
 func Test_sanitizeKey_001(t *testing.T) {
 	noise := []string{
