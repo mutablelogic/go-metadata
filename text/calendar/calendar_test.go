@@ -693,3 +693,25 @@ func Test_calendar_010(t *testing.T) {
 	), "work.ics")
 	equal(t, "ical:type", []string{"recurring", "occurrence", "task", "all-day"}, got["ical:type"])
 }
+
+func Test_calendar_011(t *testing.T) {
+	// A task's due date is its last day, so one due a day after it starts
+	// is over more than a day, but one due the day it starts, or with only
+	// a due date, isn't, and an all-day event of one day isn't
+	for _, tt := range []struct {
+		lines []string
+		want  []string
+	}{
+		{[]string{"BEGIN:VTODO", "UID:a", "DTSTART;VALUE=DATE:20261030", "DUE;VALUE=DATE:20261031", "END:VTODO"}, []string{"task", "all-day", "multi-day"}},
+		{[]string{"BEGIN:VTODO", "UID:b", "DTSTART;VALUE=DATE:20261030", "DUE;VALUE=DATE:20261030", "END:VTODO"}, []string{"task", "all-day"}},
+		{[]string{"BEGIN:VTODO", "UID:c", "DUE;VALUE=DATE:20261031", "END:VTODO"}, []string{"task", "all-day"}},
+		{[]string{"BEGIN:VEVENT", "UID:d", "DTSTART;VALUE=DATE:20261030", "DTEND;VALUE=DATE:20261031", "END:VEVENT"}, []string{"all-day"}},
+	} {
+		got := entries(t, ics(tt.lines...), "task.ics")
+		want := any(tt.want)
+		if len(tt.want) == 1 {
+			want = tt.want[0]
+		}
+		equal(t, tt.lines[1]+" ical:type", want, got["ical:type"])
+	}
+}

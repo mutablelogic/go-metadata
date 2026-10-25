@@ -257,12 +257,19 @@ func (e Event) types() []string {
 }
 
 // multiDay returns true when an event ends a day or more after it starts,
-// where an all-day event's end is the day after its last
+// where an all-day event's end is the day after its last, but a task's due
+// date is its last day, so a task due a day after it starts is over more
+// than a day, and one with only a due date, which is its start, isn't
 func (e Event) multiDay() bool {
 	if e.AllDay {
 		start, errStart := time.Parse(time.DateOnly, e.Start)
 		end, errEnd := time.Parse(time.DateOnly, e.End)
-		return errStart == nil && errEnd == nil && end.Sub(start) > 24*time.Hour
+		if errStart != nil || errEnd != nil {
+			return false
+		} else if due, err := time.Parse(time.DateOnly, e.Due); err == nil && e.Kind == string(ical.KindTask) {
+			return due.After(start)
+		}
+		return end.Sub(start) > 24*time.Hour
 	}
 	start, errStart := time.Parse(time.RFC3339, e.Start)
 	end, errEnd := time.Parse(time.RFC3339, e.End)
