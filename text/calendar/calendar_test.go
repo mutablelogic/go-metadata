@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -418,8 +419,8 @@ func Test_describe_002(t *testing.T) {
 }
 
 func Test_calendar_006(t *testing.T) {
-	// The test files are calendars, with their events, and a birthday's
-	// image is its artwork
+	// The test files are calendars, with their events, or an event, when
+	// they have one, which is a birthday, whose image is its artwork
 	for name, want := range map[string]int{"ical_google.ics": 5, "ical_birthday1.ics": 1, "ical_birthday2.ics": 1} {
 		f, err := os.Open(filepath.Join(TEST_DIR, name))
 		if err != nil {
@@ -437,9 +438,17 @@ func Test_calendar_006(t *testing.T) {
 		if e, ok := got["ical:event"].([]calendar.Event); !ok || len(e) != want {
 			t.Errorf("%s: expected %d events, got %v", name, want, got["ical:event"])
 		}
-		equal(t, name+" kind", "calendar", got["metadata:kind"])
-		if strings.HasPrefix(name, "ical_birthday") && got["artwork:image"] == nil {
-			t.Errorf("%s: expected the birthday's image", name)
+		if strings.HasPrefix(name, "ical_birthday") {
+			equal(t, name+" kind", "event", got["metadata:kind"])
+			equal(t, name+" type", "Event", got["dc:type"])
+			if types, _ := got["ical:type"].([]string); !slices.Contains(types, "birthday") {
+				t.Errorf("%s: expected a birthday, got %v", name, got["ical:type"])
+			}
+			if got["artwork:image"] == nil {
+				t.Errorf("%s: expected the birthday's image", name)
+			}
+		} else {
+			equal(t, name+" kind", "calendar", got["metadata:kind"])
 		}
 	}
 }
@@ -653,5 +662,56 @@ func Test_markdown_001(t *testing.T) {
 	}
 	if strings.Contains(body, `\*`) || strings.Contains(body, "<p>") {
 		t.Errorf("expected the description not escaped, and without HTML, in %q", body)
+	}
+}
+
+func Test_calendar_010(t *testing.T) {
+	// An event's link is ical:url, and its types are what it is: all day,
+	// as is a task due on a date, over more than a day, repeating, an
+	// occurrence of one, a birthday, or the type Google Calendar gives it,
+	// as its category, and a description
+	// which is HTML has spaces, rather than non-breaking ones
+	got := entries(t, ics(
+		"BEGIN:VEVENT",
+		"UID:a",
+		"DTSTART;VALUE=DATE:20261026",
+		"DTEND;VALUE=DATE:20261031",
+		"SUMMARY:Holiday",
+		"CATEGORIES:Out of office",
+		"URL:https://www.google.com/calendar/event?eid=a",
+		"DESCRIPTION:<p>Back&nbsp;on&nbsp;Monday</p>",
+		"END:VEVENT",
+	), "holiday.ics")
+	equal(t, "ical:url", "https://www.google.com/calendar/event?eid=a", got["ical:url"])
+	equal(t, "ical:type", []string{"all-day", "multi-day", "out-of-office"}, got["ical:type"])
+	equal(t, "dc:description", "26–30 October 2026\nBack on Monday", got["dc:description"])
+
+	got = entries(t, ics(
+		"BEGIN:VEVENT", "UID:b", "DTSTART:20261026T090000Z", "DTEND:20261026T091500Z", "RRULE:FREQ=WEEKLY", "SUMMARY:Stand-up", "END:VEVENT",
+		"BEGIN:VEVENT", "UID:b", "RECURRENCE-ID:20261102T090000Z", "DTSTART:20261102T100000Z", "DTEND:20261102T101500Z", "SUMMARY:Stand-up", "END:VEVENT",
+		"BEGIN:VTODO", "UID:c", "DUE;VALUE=DATE:20261031", "SUMMARY:Report", "END:VTODO",
+	), "work.ics")
+	equal(t, "ical:type", []string{"recurring", "occurrence", "task", "all-day"}, got["ical:type"])
+}
+
+func Test_calendar_011(t *testing.T) {
+	// A task's due date is its last day, so one due a day after it starts
+	// is over more than a day, but one due the day it starts, or with only
+	// a due date, isn't, and an all-day event of one day isn't
+	for _, tt := range []struct {
+		lines []string
+		want  []string
+	}{
+		{[]string{"BEGIN:VTODO", "UID:a", "DTSTART;VALUE=DATE:20261030", "DUE;VALUE=DATE:20261031", "END:VTODO"}, []string{"task", "all-day", "multi-day"}},
+		{[]string{"BEGIN:VTODO", "UID:b", "DTSTART;VALUE=DATE:20261030", "DUE;VALUE=DATE:20261030", "END:VTODO"}, []string{"task", "all-day"}},
+		{[]string{"BEGIN:VTODO", "UID:c", "DUE;VALUE=DATE:20261031", "END:VTODO"}, []string{"task", "all-day"}},
+		{[]string{"BEGIN:VEVENT", "UID:d", "DTSTART;VALUE=DATE:20261030", "DTEND;VALUE=DATE:20261031", "END:VEVENT"}, []string{"all-day"}},
+	} {
+		got := entries(t, ics(tt.lines...), "task.ics")
+		want := any(tt.want)
+		if len(tt.want) == 1 {
+			want = tt.want[0]
+		}
+		equal(t, tt.lines[1]+" ical:type", want, got["ical:type"])
 	}
 }

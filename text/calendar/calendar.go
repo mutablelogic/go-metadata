@@ -46,6 +46,7 @@ type Event struct {
 	RRule        string   `json:"rrule,omitempty"`
 	ExDate       []string `json:"exdate,omitempty"`
 	RecurrenceID string   `json:"recurrence_id,omitempty"`
+	URL          string   `json:"url,omitempty"`
 	Status       string   `json:"status,omitempty"`
 	Organizer    string   `json:"organizer,omitempty"`
 	Attendees    []string `json:"attendees,omitempty"`
@@ -78,6 +79,18 @@ const (
 var (
 	reContentType = regexp.MustCompile(`^text/calendar$`)
 
+	// categoryTypes are the types of events by their categories: those of
+	// the birthdays of contacts, and the types Google Calendar gives events,
+	// which omodie writes as categories
+	categoryTypes = map[string]string{
+		"birthday":         "birthday",
+		"birthdays":        "birthday",
+		"out of office":    "out-of-office",
+		"focus time":       "focus-time",
+		"working location": "working-location",
+		"from gmail":       "from-gmail",
+	}
+
 	// reHTML matches a tag of HTML which formats text, which a description
 	// written by Google Calendar has, rather than text with a placeholder in
 	// angle brackets, such as Press <Enter>
@@ -88,14 +101,18 @@ var (
 // LIFECYCLE
 
 func init() {
-	// The events of a calendar, and its kind
+	// The events of a calendar, and its kind, which is an event when it's
+	// a calendar of one
 	metadata.AddHandler(reContentType, "ical", func(_ context.Context, r io.Reader, _ *metadata.Opts) ([]metadata.Metadata, error) {
-		kind := metadata.KindMetadata(dc.KindCalendar)
 		c, err := ical.Decode(io.LimitReader(r, maxSize))
 		if err != nil {
-			return kind, err
+			return metadata.KindMetadata(dc.KindCalendar), err
 		}
-		return append(calendarMetadata(c), kind...), nil
+		kind := dc.KindCalendar
+		if len(c.Events) == 1 && c.Events[0].Kind == ical.KindEvent {
+			kind = dc.KindEvent
+		}
+		return append(calendarMetadata(c), metadata.KindMetadata(kind)...), nil
 	}, Namespace, dc.Namespace, metadata.MetadataNamespace)
 }
 
@@ -194,9 +211,69 @@ func calendarMetadata(c *ical.Calendar) []metadata.Metadata {
 	values("organizer", func(e Event) []string { return []string{e.Organizer} })
 	values("attendee", func(e Event) []string { return e.Attendees })
 	values("location", func(e Event) []string { return []string{e.Location} })
+	values("url", func(e Event) []string { return []string{e.URL} })
+	values("type", func(e Event) []string { return e.types() })
 	add(Namespace, "calendar-name", strings.TrimSpace(c.Name))
 	add(Namespace, "tz", strings.TrimSpace(c.TZ))
 	return result
+}
+
+// types returns what an event is, as well as its kind: a task, all day,
+// over more than a day, repeating, an occurrence of one which repeats, a
+// birthday, which is in the Birthdays category, or whose year isn't known,
+// or the type Google Calendar gives it, which is its category, such as Out
+// of office
+func (e Event) types() []string {
+	var result []string
+	add := func(value string) {
+		if !slices.Contains(result, value) {
+			result = append(result, value)
+		}
+	}
+	if e.Kind == string(ical.KindTask) {
+		add("task")
+	}
+	if e.AllDay {
+		add("all-day")
+	}
+	if e.multiDay() {
+		add("multi-day")
+	}
+	if e.RRule != "" {
+		add("recurring")
+	}
+	if e.RecurrenceID != "" {
+		add("occurrence")
+	}
+	if e.NoYear {
+		add("birthday")
+	}
+	for _, category := range e.Categories {
+		if value, exists := categoryTypes[strings.ToLower(strings.TrimSpace(category))]; exists {
+			add(value)
+		}
+	}
+	return result
+}
+
+// multiDay returns true when an event ends a day or more after it starts,
+// where an all-day event's end is the day after its last, but a task's due
+// date is its last day, so a task due a day after it starts is over more
+// than a day, and one with only a due date, which is its start, isn't
+func (e Event) multiDay() bool {
+	if e.AllDay {
+		start, errStart := time.Parse(time.DateOnly, e.Start)
+		end, errEnd := time.Parse(time.DateOnly, e.End)
+		if errStart != nil || errEnd != nil {
+			return false
+		} else if due, err := time.Parse(time.DateOnly, e.Due); err == nil && e.Kind == string(ical.KindTask) {
+			return due.After(start)
+		}
+		return end.Sub(start) > 24*time.Hour
+	}
+	start, errStart := time.Parse(time.RFC3339, e.Start)
+	end, errEnd := time.Parse(time.RFC3339, e.End)
+	return errStart == nil && errEnd == nil && end.Sub(start) >= 24*time.Hour
 }
 
 // distinct returns the different values of the events, in the order they
@@ -226,7 +303,7 @@ func description(value string) string {
 	if err != nil {
 		return value
 	}
-	return strings.TrimSpace(markdown)
+	return strings.TrimSpace(strings.ReplaceAll(markdown, "\u00a0", " "))
 }
 
 // toEvent returns an event, as it's stored, from an event of a calendar
@@ -249,6 +326,7 @@ func toEvent(e *ical.Event) Event {
 		Organizer:   e.Organizer,
 		Attendees:   e.Attendees,
 		Categories:  e.Categories,
+		URL:         e.URL,
 	}
 	for _, exdate := range e.ExDates {
 		result.ExDate = append(result.ExDate, format(exdate))
