@@ -35,6 +35,7 @@ const (
 	KindDrawing      = "drawing"      // A drawing or diagram, such as a Visio drawing
 	KindEmail        = "email"        // An email message
 	KindEpisode      = "episode"      // An episode of a TV show
+	KindEvent        = "event"        // An event, such as a meeting or an invitation, which is a calendar of one
 	KindFilm         = "film"         // A film, such as a movie
 	KindForm         = "form"         // A form, which is filled in
 	KindImage        = "image"        // An image, such as a photo or a drawing
@@ -61,6 +62,7 @@ var kindTypes = map[string]string{
 	KindDrawing:      TypeStillImage,
 	KindEmail:        TypeText,
 	KindEpisode:      TypeMovingImage,
+	KindEvent:        TypeEvent,
 	KindFilm:         TypeMovingImage,
 	KindForm:         TypeInteractiveResource,
 	KindImage:        TypeStillImage,
