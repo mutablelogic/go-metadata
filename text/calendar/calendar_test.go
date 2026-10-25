@@ -196,7 +196,7 @@ func Test_calendar_002(t *testing.T) {
 	equal(t, "dc:creator", "ada@example.com", got["dc:creator"])
 	equal(t, "dc:identifier", nil, got["dc:identifier"])
 	equal(t, "dc:date", "2026-10-20T23:00:00Z", got["dc:date"])
-	equal(t, "ical:location", []string{"Room 4, second floor"}, got["ical:location"])
+	equal(t, "ical:location", "Room 4, second floor", got["ical:location"])
 
 	e := events(t, got)
 	if len(e) != 5 {
@@ -557,4 +557,60 @@ func Test_calendar_007(t *testing.T) {
 	if got := entries(t, ics("BEGIN:VEVENT", "DTSTART;VALUE=DATE:20261021", "END:VEVENT"), "one.ics"); got["ical:note"] != nil {
 		t.Errorf("expected no note, got %v", got["ical:note"])
 	}
+}
+
+func Test_calendar_008(t *testing.T) {
+	// An event of a calendar, written by Google Calendar, is titled by its
+	// event, rather than its calendar, which is ical:calendar-name, its
+	// description, which is HTML, is Markdown, which isn't stored with the
+	// event again, and its kind, title, status, organizer, attendees and
+	// location are each a value
+	got := entries(t, ics(
+		"PRODID:-//omodie//Google Calendar//EN",
+		"X-WR-CALNAME:Work",
+		"X-WR-TIMEZONE:Europe/Berlin",
+		"BEGIN:VEVENT",
+		"UID:6q5q@google.com",
+		"DTSTART;TZID=Europe/Lisbon:20251006T134000",
+		"DTEND;TZID=Europe/Lisbon:20251006T140000",
+		"SUMMARY:[Fabric] Sprint Deadline",
+		"DESCRIPTION:<p>👉 <i>This marks the </i><b>close</b> of the sprint.</p><br>Make sure:<ul><li>Tasks are done</li></ul>",
+		"LOCATION:https://app.asana.com/0/portfolio/1",
+		"STATUS:CONFIRMED",
+		"ORGANIZER:mailto:rafael@example.com",
+		"ATTENDEE:mailto:david@example.com",
+		"ATTENDEE:mailto:rafael@example.com",
+		"END:VEVENT",
+	), "event.ics")
+	equal(t, "dc:title", "[Fabric] Sprint Deadline", got["dc:title"])
+	equal(t, "ical:calendar-name", "Work", got["ical:calendar-name"])
+	equal(t, "ical:kind", "event", got["ical:kind"])
+	equal(t, "ical:title", "[Fabric] Sprint Deadline", got["ical:title"])
+	equal(t, "ical:status", "CONFIRMED", got["ical:status"])
+	equal(t, "ical:organizer", "rafael@example.com", got["ical:organizer"])
+	equal(t, "ical:attendee", []string{"david@example.com", "rafael@example.com"}, got["ical:attendee"])
+	equal(t, "ical:location", "https://app.asana.com/0/portfolio/1", got["ical:location"])
+	description, _ := got["dc:description"].(string)
+	for _, text := range []string{"This marks the", "close", "of the sprint.", "Make sure:", "- Tasks are done"} {
+		if !strings.Contains(description, text) {
+			t.Errorf("dc:description: expected %q in %q", text, description)
+		}
+	}
+	if strings.Contains(description, "<") {
+		t.Errorf("dc:description has HTML: %q", description)
+	}
+	equal(t, "description", "", events(t, got)[0].Description)
+
+	// The title of events which have different ones is the calendar's
+	// name, and their values are their different ones, and a description
+	// which is text, with its lines, is as it is
+	got = entries(t, ics(
+		"X-WR-CALNAME:Work",
+		"BEGIN:VEVENT", "UID:a", "DTSTART:20261020T090000Z", "SUMMARY:Stand-up", "STATUS:CONFIRMED", "DESCRIPTION:First\\nSecond", "END:VEVENT",
+		"BEGIN:VEVENT", "UID:b", "DTSTART:20261021T090000Z", "SUMMARY:Review", "STATUS:TENTATIVE", "END:VEVENT",
+	), "work.ics")
+	equal(t, "dc:title", "Work", got["dc:title"])
+	equal(t, "ical:title", []string{"Stand-up", "Review"}, got["ical:title"])
+	equal(t, "ical:status", []string{"CONFIRMED", "TENTATIVE"}, got["ical:status"])
+	equal(t, "description", "First\nSecond", events(t, got)[0].Description)
 }
