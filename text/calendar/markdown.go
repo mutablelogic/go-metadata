@@ -93,7 +93,10 @@ func eventMarkdown(e Event) string {
 	if len(items) > 0 {
 		b.WriteString(strings.Join(items, "\n") + "\n\n")
 	}
-	if description := strings.TrimSpace(e.Description); description != "" {
+	if description := strings.TrimSpace(e.Description); description != "" && e.markdown {
+		// A description which was HTML is already Markdown
+		b.WriteString(description + "\n\n")
+	} else if description != "" {
 		b.WriteString(paragraph(description) + "\n")
 	}
 	return b.String()

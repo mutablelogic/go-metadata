@@ -13,6 +13,7 @@ import (
 	"time"
 
 	// Packages
+	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown/v2"
 	metadata "github.com/mutablelogic/go-metadata"
 	dc "github.com/mutablelogic/go-metadata/dublincore"
 	meta "github.com/mutablelogic/go-metadata/internal/meta"
@@ -49,6 +50,10 @@ type Event struct {
 	Organizer    string   `json:"organizer,omitempty"`
 	Attendees    []string `json:"attendees,omitempty"`
 	Categories   []string `json:"categories,omitempty"`
+
+	// markdown is true when the description is Markdown, as it was HTML,
+	// rather than text, which isn't stored
+	markdown bool
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -64,10 +69,19 @@ const (
 
 	// maxEvents is the most events of a calendar which are stored
 	maxEvents = 1000
+
+	// maxValues is the most values of the events of a calendar which are
+	// each key, such as its attendees
+	maxValues = 100
 )
 
 var (
 	reContentType = regexp.MustCompile(`^text/calendar$`)
+
+	// reHTML matches a tag of HTML which formats text, which a description
+	// written by Google Calendar has, rather than text with a placeholder in
+	// angle brackets, such as Press <Enter>
+	reHTML = regexp.MustCompile(`(?i)</?(a|b|blockquote|br|code|div|em|font|h[1-6]|hr|i|img|li|ol|p|pre|s|span|strike|strong|sub|sup|table|tbody|td|th|thead|tr|u|ul)(\s[^<>]*)?/?>`)
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -89,18 +103,24 @@ func init() {
 // PRIVATE METHODS
 
 // calendarMetadata returns the metadata of a calendar: its events and tasks
-// as ical:event, the locations of its events, to search for, as
-// ical:location, its zone as ical:tz, and when it starts and ends, as
-// ical:date-start and ical:date-end (see span), which aren't known for a birthday
-// whose year isn't known, or which repeats forever. Its title is the calendar's name,
-// or the title of its events when they all have the same one, such as the
-// flights of a trip, and otherwise, the title from the file's name. Its
+// as ical:event, and of its events, to search for, their kinds, titles,
+// statuses, organizers, attendees and locations, as ical:kind, ical:title,
+// ical:status, ical:organizer, ical:attendee and ical:location, each a value
+// when they all have the same one, or else the different values, its name as
+// ical:calendar-name, its zone as ical:tz, and when it starts and ends, as
+// ical:date-start and ical:date-end (see span), which aren't known for a
+// birthday whose year isn't known, or which repeats forever. Its title is
+// the title of its events when they all have the same one, such as the only
+// event of an invitation, or the flights of a trip, and otherwise, the
+// calendar's name, or the title from the file's name. Its
 // description is the calendar's, and when its only event is, where, and its
 // description, or how many events it has, between which dates, and their
 // titles, so they're searched for. Its only event's UID is its identifier,
 // the first event's organizer its creator, and the earliest start whose
 // year is known its date, all of which are of all its events. At most
 // maxEvents events are stored, and when there are more, ical:note says so.
+// When there's only one, its description is the calendar's, rather than
+// stored again with it.
 // Reference: https://www.rfc-editor.org/rfc/rfc5545
 func calendarMetadata(c *ical.Calendar) []metadata.Metadata {
 	// All the events, which describe the calendar, of which the first are
@@ -110,12 +130,6 @@ func calendarMetadata(c *ical.Calendar) []metadata.Metadata {
 		events[i] = toEvent(e)
 	}
 	stored := events[:min(len(events), maxEvents)]
-	var locations []string
-	for _, event := range stored {
-		if event.Location != "" && !slices.Contains(locations, event.Location) {
-			locations = append(locations, event.Location)
-		}
-	}
 
 	var result []metadata.Metadata
 	add := func(ns, key string, value any) {
@@ -128,10 +142,10 @@ func calendarMetadata(c *ical.Calendar) []metadata.Metadata {
 	}
 
 	// The title, description and identifier
-	if name := strings.TrimSpace(c.Name); name != "" {
-		add(dc.Namespace, dc.Title, name)
+	if title := sameTitle(events); title != "" {
+		add(dc.Namespace, dc.Title, title)
 	} else {
-		add(dc.Namespace, dc.Title, sameTitle(events))
+		add(dc.Namespace, dc.Title, strings.TrimSpace(c.Name))
 	}
 	add(dc.Namespace, dc.Description, describe(c.Description, events))
 	if len(events) == 1 {
@@ -153,19 +167,66 @@ func calendarMetadata(c *ical.Calendar) []metadata.Metadata {
 		}
 	}
 
-	// The events which are stored, and a note when they aren't all of them,
-	// and their locations, and the calendar's zone
+	// The events which are stored, without the description of the only one,
+	// which is the calendar's, and a note when they aren't all of them
+	if len(stored) == 1 {
+		stored = slices.Clone(stored)
+		stored[0].Description, stored[0].markdown = "", false
+	}
 	if len(stored) > 0 {
 		add(Namespace, "event", stored)
 	}
 	if len(stored) < len(events) {
 		add(Namespace, "note", fmt.Sprintf("Only the first %d of the calendar's %d events are stored in ical:event.", len(stored), len(events)))
 	}
-	if len(locations) > 0 {
-		result = append(result, meta.NewText(Namespace, "location", locations, strings.Join(locations, "; ")))
+	// The kinds, titles, statuses, organizers, attendees and locations of the
+	// events, the calendar's name, and its zone
+	values := func(key string, fn func(Event) []string) {
+		if list := distinct(events, fn); len(list) == 1 {
+			add(Namespace, key, list[0])
+		} else if len(list) > 1 {
+			result = append(result, meta.NewText(Namespace, key, list, strings.Join(list, "; ")))
+		}
 	}
+	values("kind", func(e Event) []string { return []string{e.Kind} })
+	values("title", func(e Event) []string { return []string{e.Title} })
+	values("status", func(e Event) []string { return []string{e.Status} })
+	values("organizer", func(e Event) []string { return []string{e.Organizer} })
+	values("attendee", func(e Event) []string { return e.Attendees })
+	values("location", func(e Event) []string { return []string{e.Location} })
+	add(Namespace, "calendar-name", strings.TrimSpace(c.Name))
 	add(Namespace, "tz", strings.TrimSpace(c.TZ))
 	return result
+}
+
+// distinct returns the different values of the events, in the order they
+// first are, without those which are empty, and at most maxValues
+func distinct(events []Event, fn func(Event) []string) []string {
+	var result []string
+	for _, event := range events {
+		for _, value := range fn(event) {
+			if value = strings.TrimSpace(value); value != "" && !slices.Contains(result, value) {
+				result = append(result, value)
+				if len(result) == maxValues {
+					return result
+				}
+			}
+		}
+	}
+	return result
+}
+
+// description returns an event's description as Markdown, when it's HTML,
+// such as when Google Calendar wrote it, and otherwise as it is
+func description(value string) string {
+	if !reHTML.MatchString(value) {
+		return value
+	}
+	markdown, err := htmltomarkdown.ConvertString(value)
+	if err != nil {
+		return value
+	}
+	return strings.TrimSpace(markdown)
 }
 
 // toEvent returns an event, as it's stored, from an event of a calendar
@@ -174,7 +235,8 @@ func toEvent(e *ical.Event) Event {
 		UID:         e.UID,
 		Kind:        string(e.Kind),
 		Title:       e.Summary,
-		Description: e.Description,
+		Description: description(e.Description),
+		markdown:    reHTML.MatchString(e.Description),
 		Location:    e.Location,
 		Start:       format(e.Start),
 		End:         format(e.End),
