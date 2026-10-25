@@ -42,7 +42,7 @@ func movieMetadata(movie *schema.MovieDetails) []metadata.Metadata {
 	)
 	if movie.ReleaseDate != "" {
 		result = append(result,
-			meta.New(Namespace, "release_date", movie.ReleaseDate),
+			meta.New(Namespace, "date-release", movie.ReleaseDate),
 			meta.New(dc.Namespace, dc.Date, movie.ReleaseDate),
 		)
 	}
@@ -57,7 +57,7 @@ func movieMetadata(movie *schema.MovieDetails) []metadata.Metadata {
 	}
 	if movie.IMDbID != "" {
 		result = append(result,
-			meta.New(Namespace, "imdb_id", movie.IMDbID),
+			meta.New(Namespace, "imdbid", movie.IMDbID),
 			meta.New(dc.Namespace, dc.Identifier, movie.IMDbID),
 		)
 	}

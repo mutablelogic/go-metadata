@@ -389,3 +389,28 @@ func Test_mime_zip_types(t *testing.T) {
 		}
 	}
 }
+
+func Test_extension_by_type_000(t *testing.T) {
+	// A type's preferred extension, the first which the mime package knows,
+	// or the first of a type of text, ignoring the type's parameters, and
+	// none for a type without one, or a type which isn't one
+	if err := AddTextExtensionType(".xtest", "text/x-extension-by-type"); err != nil {
+		t.Fatal(err)
+	}
+	for contentType, want := range map[string]string{
+		"image/jpeg":               ".jpg",
+		"audio/mp4":                ".m4a",
+		"video/mp2t":               ".ts",
+		"audio/x-mpegurl":          ".m3u",
+		"application/pdf":          ".pdf",
+		"text/plain; charset=utf8": ".txt",
+		"text/x-extension-by-type": ".xtest",
+		"application/x-no-such":    "",
+		"not a type":               "",
+		"":                         "",
+	} {
+		if got := ExtensionByType(contentType); got != want {
+			t.Errorf("%q: got %q, want %q", contentType, got, want)
+		}
+	}
+}
