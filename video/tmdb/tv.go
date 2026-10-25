@@ -47,7 +47,7 @@ func episodeMetadata(show *schema.TVShowDetails, episode *schema.TVEpisode) []me
 	title := episodeTitle(show, episode)
 	result := append(metadata.KindMetadata(dc.KindEpisode),
 		meta.New(Namespace, "id", strconv.FormatUint(episode.ID, 10)),
-		meta.New(Namespace, "show_id", strconv.FormatUint(show.ID, 10)),
+		meta.New(Namespace, "showid", strconv.FormatUint(show.ID, 10)),
 		meta.New(Namespace, "show", show.Name),
 		meta.New(Namespace, "season", episode.SeasonNumber),
 		meta.New(Namespace, "episode", episode.EpisodeNumber),
@@ -58,7 +58,7 @@ func episodeMetadata(show *schema.TVShowDetails, episode *schema.TVEpisode) []me
 	}
 	if episode.AirDate != "" {
 		result = append(result,
-			meta.New(Namespace, "release_date", episode.AirDate),
+			meta.New(Namespace, "date-release", episode.AirDate),
 			meta.New(dc.Namespace, dc.Date, episode.AirDate),
 		)
 	}
@@ -73,7 +73,7 @@ func episodeMetadata(show *schema.TVShowDetails, episode *schema.TVEpisode) []me
 	}
 	if episode.ExternalIDs != nil && episode.ExternalIDs.IMDbID != "" {
 		result = append(result,
-			meta.New(Namespace, "imdb_id", episode.ExternalIDs.IMDbID),
+			meta.New(Namespace, "imdbid", episode.ExternalIDs.IMDbID),
 			meta.New(dc.Namespace, dc.Identifier, episode.ExternalIDs.IMDbID),
 		)
 	}
@@ -87,13 +87,13 @@ func episodeMetadata(show *schema.TVShowDetails, episode *schema.TVEpisode) []me
 // dc:identifier too, when they're known
 func showMetadata(show *schema.TVShowDetails) []metadata.Metadata {
 	result := append(metadata.KindMetadata(dc.KindEpisode),
-		meta.New(Namespace, "show_id", strconv.FormatUint(show.ID, 10)),
+		meta.New(Namespace, "showid", strconv.FormatUint(show.ID, 10)),
 		meta.New(Namespace, "show", show.Name),
 		meta.New(dc.Namespace, dc.Title, show.Name),
 	)
 	if show.FirstAirDate != "" {
 		result = append(result,
-			meta.New(Namespace, "release_date", show.FirstAirDate),
+			meta.New(Namespace, "date-release", show.FirstAirDate),
 			meta.New(dc.Namespace, dc.Date, show.FirstAirDate),
 		)
 	}
@@ -105,7 +105,7 @@ func showMetadata(show *schema.TVShowDetails) []metadata.Metadata {
 	}
 	if show.ExternalIDs != nil && show.ExternalIDs.IMDbID != "" {
 		result = append(result,
-			meta.New(Namespace, "imdb_id", show.ExternalIDs.IMDbID),
+			meta.New(Namespace, "imdbid", show.ExternalIDs.IMDbID),
 			meta.New(dc.Namespace, dc.Identifier, show.ExternalIDs.IMDbID),
 		)
 	}

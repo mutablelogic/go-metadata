@@ -131,6 +131,83 @@ func AddSignature(prefix []byte, contentType string) error {
 	return nil
 }
 
+// usualExtensions are the usual extensions of common types, which
+// ExtensionByType returns, as the first of a type's extensions in the mime
+// package, which reads the system's types, can be another, such as .conf for
+// text/plain, or .jfif for image/jpeg
+var usualExtensions = map[string]string{
+	"text/plain":       ".txt",
+	"text/html":        ".html",
+	"text/markdown":    ".md",
+	"text/csv":         ".csv",
+	"text/calendar":    ".ics",
+	"text/vcard":       ".vcf",
+	"application/json": ".json",
+	"application/xml":  ".xml",
+	"application/zip":  ".zip",
+	"image/png":        ".png",
+	"image/gif":        ".gif",
+	"image/tiff":       ".tif",
+	"image/webp":       ".webp",
+	"audio/mpeg":       ".mp3",
+	"audio/flac":       ".flac",
+	"video/mp4":        ".mp4",
+	"video/quicktime":  ".mov",
+}
+
+// ExtensionByType returns the usual extension of a content type, with its
+// dot, such as .jpg for image/jpeg, or an empty string when it has none. It's
+// the type's preferred extension, when it has one, or else the usual
+// extension of a common type, or else the first of its extensions which the
+// mime package knows, or else the first extension of a type of text (see
+// AddTextExtensionType). The type's parameters, such as a
+// charset, are ignored.
+func ExtensionByType(contentType string) string {
+	if mediatype, _, err := mime.ParseMediaType(contentType); err == nil {
+		contentType = mediatype
+	} else {
+		return ""
+	}
+
+	// The type's preferred extension
+	var preferred []string
+	for ext, rule := range extensionContentTypes {
+		if rule.ContentType == contentType && rule.Preferred {
+			preferred = append(preferred, ext)
+		}
+	}
+	if len(preferred) > 0 {
+		slices.Sort(preferred)
+		return preferred[0]
+	}
+
+	// The usual extension of a common type, whose first extension in the
+	// mime package, which depends on the system, isn't
+	if ext, exists := usualExtensions[contentType]; exists {
+		return ext
+	}
+
+	// The first extension which the mime package knows, which it sorts
+	if exts, err := mime.ExtensionsByType(contentType); err == nil && len(exts) > 0 {
+		return exts[0]
+	}
+
+	// The first extension of a type of text
+	textExtensionTypesMu.RLock()
+	defer textExtensionTypesMu.RUnlock()
+	var text []string
+	for ext, textType := range textExtensionTypes {
+		if textType == contentType {
+			text = append(text, ext)
+		}
+	}
+	if len(text) > 0 {
+		slices.Sort(text)
+		return text[0]
+	}
+	return ""
+}
+
 // AddTextExtensionType registers the type of text with the extension, such
 // as text/x-typescript for .ts, which refines content sniffed as plain text,
 // as mime.AddExtensionType's does, but is never the type of content by its

@@ -249,14 +249,14 @@ func Test_tmdb_002(t *testing.T) {
 		want map[string]string
 	}{
 		{"Movie", metadata.WithTMDBMovie(603), map[string]string{
-			"id": "603", "title": "The Matrix", "release_date": "1999-03-30", "overview": "Neo", "runtime": "2h16m0s", "imdb_id": "tt0133093",
+			"id": "603", "title": "The Matrix", "date-release": "1999-03-30", "overview": "Neo", "runtime": "2h16m0s", "imdbid": "tt0133093",
 		}},
 
 		// The episode's runtime is the show's typical one, when it isn't
 		// known
 		{"Episode", metadata.WithTMDBEpisode(1396, 1, 2), map[string]string{
-			"id": "62086", "show_id": "1396", "show": "Breaking Bad", "season": "1", "episode": "2",
-			"title": "Cat's in the Bag...", "release_date": "2008-01-27", "runtime": "47m0s", "imdb_id": "tt1054724",
+			"id": "62086", "showid": "1396", "show": "Breaking Bad", "season": "1", "episode": "2",
+			"title": "Cat's in the Bag...", "date-release": "2008-01-27", "runtime": "47m0s", "imdbid": "tt1054724",
 		}},
 
 		// A movie or an episode which TMDB doesn't have has no metadata,
@@ -411,17 +411,17 @@ func Test_tmdb_005(t *testing.T) {
 		// The first show with the episode, within 10%: the second show's
 		// episode is too long, and the third's runtime is its show's
 		{"22/The Office S02E01.mp4", map[string]string{
-			"id": "31", "show_id": "3", "show": "The Office", "season": "2", "episode": "1", "title": "The Dundies", "runtime": "22m0s",
+			"id": "31", "showid": "3", "show": "The Office", "season": "2", "episode": "1", "title": "The Dundies", "runtime": "22m0s",
 		}},
 
 		// Without the duration, the first show with the episode
 		{"The Office S02E01.mp4", map[string]string{
-			"id": "21", "show_id": "2", "show": "The Office", "season": "2", "episode": "1", "title": "Merger", "runtime": "30m0s",
+			"id": "21", "showid": "2", "show": "The Office", "season": "2", "episode": "1", "title": "Merger", "runtime": "30m0s",
 		}},
 
 		// The first show which has the episode
 		{"The Office S05E20.mp4", map[string]string{
-			"id": "32", "show_id": "3", "show": "The Office", "season": "5", "episode": "20", "title": "New Boss", "runtime": "22m0s",
+			"id": "32", "showid": "3", "show": "The Office", "season": "5", "episode": "20", "title": "New Boss", "runtime": "22m0s",
 		}},
 
 		// No show has the episode
@@ -431,14 +431,14 @@ func Test_tmdb_005(t *testing.T) {
 		// episode is within 25%, as TMDB's runtimes of episodes are often
 		// rounded, or else none
 		{"35/The Office S02E01.mp4", map[string]string{
-			"id": "21", "show_id": "2", "show": "The Office", "season": "2", "episode": "1", "title": "Merger", "runtime": "30m0s",
+			"id": "21", "showid": "2", "show": "The Office", "season": "2", "episode": "1", "title": "Merger", "runtime": "30m0s",
 		}},
 		{"60/The Office S02E01.mp4", map[string]string{}},
 
 		// A show's video, without an episode, is the first show, whose
 		// typical runtime is the video's duration, within 10%
-		{"The Office/Season 1/Pilot.mp4", map[string]string{"show_id": "2", "show": "The Office", "release_date": "2001-07-09"}},
-		{"The Office/Season 2/Pilot.mp4", map[string]string{"show_id": "3", "show": "The Office", "release_date": "2005-03-24"}},
+		{"The Office/Season 1/Pilot.mp4", map[string]string{"showid": "2", "show": "The Office", "date-release": "2001-07-09"}},
+		{"The Office/Season 2/Pilot.mp4", map[string]string{"showid": "3", "show": "The Office", "date-release": "2005-03-24"}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
