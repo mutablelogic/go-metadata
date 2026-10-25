@@ -50,6 +50,10 @@ type Event struct {
 	Organizer    string   `json:"organizer,omitempty"`
 	Attendees    []string `json:"attendees,omitempty"`
 	Categories   []string `json:"categories,omitempty"`
+
+	// markdown is true when the description is Markdown, as it was HTML,
+	// rather than text, which isn't stored
+	markdown bool
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -74,9 +78,10 @@ const (
 var (
 	reContentType = regexp.MustCompile(`^text/calendar$`)
 
-	// reHTML matches a tag of HTML, which a description written by Google
-	// Calendar is, rather than text
-	reHTML = regexp.MustCompile(`(?i)</?[a-z][a-z0-9]*(\s[^<>]*)?/?>`)
+	// reHTML matches a tag of HTML which formats text, which a description
+	// written by Google Calendar has, rather than text with a placeholder in
+	// angle brackets, such as Press <Enter>
+	reHTML = regexp.MustCompile(`(?i)</?(a|b|blockquote|br|code|div|em|font|h[1-6]|hr|i|img|li|ol|p|pre|s|span|strike|strong|sub|sup|table|tbody|td|th|thead|tr|u|ul)(\s[^<>]*)?/?>`)
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -166,7 +171,7 @@ func calendarMetadata(c *ical.Calendar) []metadata.Metadata {
 	// which is the calendar's, and a note when they aren't all of them
 	if len(stored) == 1 {
 		stored = slices.Clone(stored)
-		stored[0].Description = ""
+		stored[0].Description, stored[0].markdown = "", false
 	}
 	if len(stored) > 0 {
 		add(Namespace, "event", stored)
@@ -231,6 +236,7 @@ func toEvent(e *ical.Event) Event {
 		Kind:        string(e.Kind),
 		Title:       e.Summary,
 		Description: description(e.Description),
+		markdown:    reHTML.MatchString(e.Description),
 		Location:    e.Location,
 		Start:       format(e.Start),
 		End:         format(e.End),

@@ -614,3 +614,44 @@ func Test_calendar_008(t *testing.T) {
 	equal(t, "ical:status", []string{"CONFIRMED", "TENTATIVE"}, got["ical:status"])
 	equal(t, "description", "First\nSecond", events(t, got)[0].Description)
 }
+
+func Test_calendar_009(t *testing.T) {
+	// A description with a placeholder in angle brackets is text, which is
+	// kept as it is, rather than HTML
+	got := entries(t, ics(
+		"BEGIN:VEVENT", "UID:a", "DTSTART:20261020T090000Z", "SUMMARY:Sign in",
+		"DESCRIPTION:Press <Enter> to confirm\\, with <username> and <password>",
+		"END:VEVENT",
+	), "event.ics")
+	description, _ := got["dc:description"].(string)
+	if !strings.Contains(description, "Press <Enter> to confirm, with <username> and <password>") {
+		t.Errorf("dc:description: expected the placeholders in %q", description)
+	}
+}
+
+func Test_markdown_001(t *testing.T) {
+	// An event's description which is HTML is Markdown, which isn't escaped
+	// again, and one which is text is escaped
+	_, meta, err := metadata.Extract(context.Background(), strings.NewReader(ics(
+		"BEGIN:VEVENT",
+		"DTSTART:20261021T090000Z",
+		"SUMMARY:Sprint",
+		`DESCRIPTION:<p>The <b>close</b> of the <a href="https://example.com/">sprint</a></p>`,
+		"END:VEVENT",
+	)), metadata.WithContentType("text/calendar"), metadata.WithNamespace(metadata.MarkdownNamespace), metadata.WithRange(":"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var body string
+	for _, m := range meta {
+		if m.Key() == "body" {
+			body = m.Value()
+		}
+	}
+	if !strings.Contains(body, "The **close** of the [sprint](https://example.com/)") {
+		t.Errorf("expected the description as Markdown in %q", body)
+	}
+	if strings.Contains(body, `\*`) || strings.Contains(body, "<p>") {
+		t.Errorf("expected the description not escaped, and without HTML, in %q", body)
+	}
+}
