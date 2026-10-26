@@ -353,9 +353,28 @@ func Test_metadata_010(t *testing.T) {
 	if handlers := GetHandlers("application/x-test-unknown"); handlers != nil {
 		t.Fatalf("expected no handlers, got %d", len(handlers))
 	}
-	_, _, err := Extract(context.Background(), bytes.NewReader(nil), WithContentType("application/x-test-unknown"))
+	_, meta, err := Extract(context.Background(), bytes.NewReader(nil), WithContentType("application/x-test-unknown"))
 	if !errors.Is(err, ErrNotImplemented) {
 		t.Fatalf("expected ErrNotImplemented, got %v", err)
+	}
+
+	// It has no hints, as an empty list, so there's nothing more to read of
+	// it, unless the metadata namespace isn't asked for
+	var hints []string
+	found := false
+	for _, m := range meta {
+		if m.NS() == MetadataNamespace && m.Key() == HintKey {
+			hints, found = m.Any().([]string)
+		}
+	}
+	if !found || hints == nil || len(hints) != 0 {
+		t.Fatalf("expected an empty list of hints, got %v, %v", found, hints)
+	}
+	_, meta, _ = Extract(context.Background(), bytes.NewReader(nil), WithContentType("application/x-test-unknown"), WithNamespace("dc"))
+	for _, m := range meta {
+		if m.Key() == HintKey {
+			t.Fatalf("expected no hints without the metadata namespace")
+		}
 	}
 }
 
@@ -473,8 +492,9 @@ func Test_metadata_015(t *testing.T) {
 	if contentType != "application/x-test-unknown" {
 		t.Fatalf("expected application/x-test-unknown, got %q", contentType)
 	}
-	if got, want := keys(meta), []string{"dc:title"}; !slices.Equal(got, want) || meta[0].Value() != "My Notes" {
-		t.Fatalf("expected the title My Notes, got %v", meta)
+	title := slices.IndexFunc(meta, func(m Metadata) bool { return m.Key() == "title" })
+	if got, want := keys(meta), []string{"dc:title", "metadata:hint", "metadata:kind"}; !slices.Equal(got, want) || title < 0 || meta[title].Value() != "My Notes" {
+		t.Fatalf("expected the title My Notes, an unknown kind, and no hints, got %v", meta)
 	}
 
 	// The title isn't returned when another namespace is requested
@@ -492,15 +512,16 @@ var addKindHandler = sync.OnceFunc(func() {
 
 func Test_metadata_016(t *testing.T) {
 	// The type and kind of the input are only those a handler returns, in
-	// the requested namespaces, and not from its content type
+	// the requested namespaces, and not from its content type, and an input
+	// no handler reads is of an unknown kind, with no type, and no hints
 	addKindHandler()
 	for _, test := range []struct {
 		contentType string
 		opts        []Option
 		want        map[string]string
 	}{
-		{"application/x-test-unknown", nil, map[string]string{}},
-		{"video/mp4", nil, map[string]string{}},
+		{"application/x-test-unknown", nil, map[string]string{"metadata:hint": "", "metadata:kind": "unknown"}},
+		{"video/mp4", nil, map[string]string{"metadata:hint": "", "metadata:kind": "unknown"}},
 		{"application/x-test-kind", nil, map[string]string{"dc:type": "InteractiveResource", "metadata:kind": "form"}},
 		{"application/x-test-kind", []Option{WithNamespace("dc")}, map[string]string{"dc:type": "InteractiveResource"}},
 		{"application/x-test-kind", []Option{WithNamespace("metadata")}, map[string]string{"metadata:kind": "form"}},

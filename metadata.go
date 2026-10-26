@@ -122,7 +122,8 @@ const (
 
 	// HintKey is the key of the hints of what to read of the input next, in
 	// the metadata namespace, such as its Markdown, which are a list of the
-	// hints of all the handlers which read it (see HintMetadata)
+	// hints of all the handlers which read it (see HintMetadata), or an empty
+	// list when no handler can read it, as there's nothing more to read of it
 	HintKey = "hint"
 
 	// ArtworkNamespace is the namespace of images which represent a
@@ -303,10 +304,12 @@ func Extract(parent context.Context, r io.Reader, opts ...Option) (_ string, _ [
 	trace.SpanFromContext(ctx).SetAttributes(attribute.String("contentType", contentType))
 
 	// Check for handlers registered for this content type. If none, return
-	// the title from the name of r
+	// the title from the name of r, its kind, which is unknown, and no
+	// hints, as an empty list, as there is nothing more to read of it
 	entries := getEntries(o.contentType)
 	if len(entries) == 0 {
-		return contentType, o.result(r, nil), ErrNotImplemented.With("no handler for content type ", o.contentType)
+		unknown := append(KindMetadata(dublincore.KindUnknown), hintMeta{})
+		return contentType, o.result(r, unknown), ErrNotImplemented.With("no handler for content type ", o.contentType)
 	}
 
 	// Narrow down to the handlers that can produce one of the requested
