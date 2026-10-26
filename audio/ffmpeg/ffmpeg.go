@@ -8,6 +8,7 @@ package ffmpeg
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"maps"
 	"mime"
@@ -160,12 +161,35 @@ func init() {
 		if slices.ContainsFunc(entries, func(e entry) bool { return e.ns == MusicBrainzNamespace && e.key == recordingIDKey }) {
 			kind = metadata.KindMetadata(dc.KindRecording)
 		}
-		return append(append(result, streamMetadata(rd.Streams())...), kind...), nil
+		hints := audioHints(entries, len(rd.Metadata(gomedia.MetaArtwork)) > 0)
+		return append(append(append(result, streamMetadata(rd.Streams())...), kind...), metadata.HintMetadata(hints...)...), nil
 	}, AudioNamespace, MusicBrainzNamespace, AcoustIDNamespace, dc.Namespace, metadata.MetadataNamespace)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // PRIVATE METHODS
+
+// audioHints returns the hints of audio, from its tags: its artwork, when it
+// has cover art, which is attached to it, its transcription, when it has no
+// MusicBrainz or AcoustID tags, so it isn't known to be music, and may be
+// speech, and its collection, when it has an album, by its name or its
+// MusicBrainz identifier
+func audioHints(entries []entry, cover bool) []string {
+	var hints []string
+	if cover {
+		hints = append(hints, metadata.HintArtwork)
+	}
+	if !slices.ContainsFunc(entries, func(e entry) bool { return e.ns == MusicBrainzNamespace || e.ns == AcoustIDNamespace }) {
+		hints = append(hints, metadata.HintTranscription)
+	}
+	if slices.ContainsFunc(entries, func(e entry) bool {
+		return (e.ns == AudioNamespace && e.key == "album" && strings.TrimSpace(fmt.Sprint(e.value)) != "") ||
+			(e.ns == MusicBrainzNamespace && (e.key == "release-id" || e.key == "release-group-id"))
+	}) {
+		hints = append(hints, metadata.HintCollection)
+	}
+	return hints
+}
 
 // tagEntries returns the tags of audio, mapped onto their keys (see
 // sanitizeKey), and their values (see tagValues), without those which are

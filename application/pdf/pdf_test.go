@@ -452,3 +452,43 @@ func Test_pdf_011(t *testing.T) {
 		expect(t, meta, map[string]string{"pdf:width-mm": test.width, "pdf:height-mm": test.height})
 	}
 }
+
+func Test_pdf_hints(t *testing.T) {
+	// hints returns the hints of the document
+	hints := func(t *testing.T, r io.Reader) string {
+		t.Helper()
+		_, meta, err := metadata.Extract(context.Background(), r, metadata.WithContentType("application/pdf"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, m := range meta {
+			if m.NS() == metadata.MetadataNamespace && m.Key() == metadata.HintKey {
+				return m.Value()
+			}
+		}
+		return ""
+	}
+	file := func(t *testing.T, name string) io.Reader {
+		t.Helper()
+		data, err := os.ReadFile(filepath.Join("..", "..", "testfiles", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return bytes.NewReader(data)
+	}
+
+	// A page which uses a font has text, and a page which draws an image
+	// without one is scanned, and a document with pages has artwork
+	if got := hints(t, bytes.NewReader(documentWithPage("", "", "/MediaBox [0 0 612 792] /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >>"))); got != "artwork,markdown" {
+		t.Errorf("text: expected artwork,markdown, got %q", got)
+	}
+	if got := hints(t, bytes.NewReader(documentWithPage("", "", "/MediaBox [0 0 612 792]"))); got != "artwork" {
+		t.Errorf("blank: expected artwork, got %q", got)
+	}
+	if got := hints(t, file(t, "sample_scanned.pdf")); got != "artwork,markdown,ocr" {
+		t.Errorf("sample_scanned.pdf: expected artwork,markdown,ocr, got %q", got)
+	}
+	if got := hints(t, file(t, "sample_with_thumbnails.pdf")); !strings.Contains(got, "markdown") || !strings.Contains(got, "artwork") {
+		t.Errorf("sample_with_thumbnails.pdf: expected artwork and markdown, got %q", got)
+	}
+}

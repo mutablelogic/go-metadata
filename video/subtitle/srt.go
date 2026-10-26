@@ -6,6 +6,7 @@ package subtitle
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -68,13 +69,18 @@ func init() {
 	}
 
 	// The kind of SubRip subtitles, their language and what they're for,
-	// from their name, and their cues as Markdown, only when the markdown
-	// namespace is requested
+	// from their name, a hint of their Markdown, when they have a cue, and
+	// their cues as Markdown, only when the markdown namespace is requested
 	metadata.AddHandler(reContentType, "srt", func(ctx context.Context, r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
 		// The kind of the subtitles, and their language, from their name
 		kind := metadata.KindMetadata(dc.KindSubtitles)
 		if named, ok := r.(interface{ Name() string }); ok {
 			kind = append(kind, nameMetadata(named.Name())...)
+		}
+		if cues, err := hasCue(ctx, r); err != nil {
+			return kind, err
+		} else if cues {
+			kind = append(kind, metadata.HintMetadata(metadata.HintMarkdown)...)
 		}
 		if !o.HasNamespace(metadata.MarkdownNamespace) {
 			return kind, nil
@@ -87,6 +93,42 @@ func init() {
 
 ////////////////////////////////////////////////////////////////////////////////
 // PRIVATE METHODS
+
+// hasCue returns true when the subtitles have a cue, which is read until the
+// first cue is, and then the reader is where it was, when it can seek, so
+// the cues can be read again
+func hasCue(ctx context.Context, r io.Reader) (bool, error) {
+	seeker, ok := r.(io.Seeker)
+	if !ok {
+		return false, nil
+	}
+	start, err := seeker.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return false, err
+	}
+	var w firstWrite
+	if err := writeSRT(ctx, r, &w); err != nil && !errors.Is(err, errWritten) {
+		return false, err
+	} else if _, err := seeker.Seek(start, io.SeekStart); err != nil {
+		return false, err
+	}
+	return bool(w), nil
+}
+
+// firstWrite is true once it's written to, which returns errWritten, so
+// what writes to it stops
+type firstWrite bool
+
+// errWritten is returned by a firstWrite which is written to
+var errWritten = errors.New("written")
+
+func (w *firstWrite) WriteString(s string) (int, error) {
+	if s == "" {
+		return 0, nil
+	}
+	*w = true
+	return 0, errWritten
+}
 
 // writeSRT writes the cues of the SubRip subtitles as Markdown, a paragraph
 // for each, which starts with its number, and its start and end times, such

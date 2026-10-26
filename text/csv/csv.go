@@ -169,6 +169,9 @@ func init() {
 		}
 
 		result := append(valuesMetadata(count, columns, delim, header), kind...)
+		if count > 0 {
+			result = append(result, metadata.HintMetadata(metadata.HintMarkdown)...)
+		}
 		if w == nil {
 			return result, nil
 		}

@@ -74,8 +74,9 @@ func TestODFMetadata(t *testing.T) {
 		// type and kind
 		meta, err := odfEntries(t, "/docs/Minutes.odt", document(t, map[string]string{"mimetype": odtType, "content.xml": "<office:document-content/>"}))
 		require.NoError(t, err)
-		require.Len(t, meta, 3)
+		require.Len(t, meta, 4)
 		assert.Equal(t, "document", meta["metadata:kind"].Value())
+		assert.Equal(t, "markdown", meta["metadata:hint"].Value())
 		assert.Equal(t, "Minutes", meta["dc:title"].Value())
 	})
 }

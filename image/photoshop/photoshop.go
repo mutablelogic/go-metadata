@@ -21,6 +21,7 @@ import (
 	dc "github.com/mutablelogic/go-metadata/dublincore"
 	meta "github.com/mutablelogic/go-metadata/internal/meta"
 	exif "github.com/mutablelogic/go-metadata/pkg/exif"
+	geo "github.com/mutablelogic/go-metadata/pkg/geo"
 	iptc "github.com/mutablelogic/go-metadata/pkg/iptc"
 	xmp "github.com/mutablelogic/go-metadata/pkg/xmp"
 	psd "github.com/oov/psd"
@@ -109,12 +110,35 @@ func init() {
 				meta.New(imageNamespace, "height", cfg.Rect.Dy()),
 			)
 		}
-		return append(result, documentMetadata(cfg)...), nil
+
+		// Hints of its artwork, when it has a thumbnail, or it's a document
+		// of an application/ content type, whose composite image is its
+		// artwork, and of its place, when it has a GPS position
+		result = append(result, documentMetadata(cfg)...)
+		hints := positionHints(result)
+		if res, exists := cfg.Res[resourceThumbnail]; (exists && len(res.Data) > thumbnailHeaderSize) || !isImage(o.ContentType()) {
+			hints = append(hints, metadata.HintArtwork)
+		}
+		return append(result, metadata.HintMetadata(hints...)...), nil
 	}, Namespace, XMPNamespace, iptc.Namespace, exif.TIFFNamespace, exif.EXIFNamespace, dc.Namespace, imageNamespace, metadata.MetadataNamespace)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // PRIVATE METHODS
+
+// positionHints returns the hint of a document's place, metadata.HintGeo,
+// when its metadata has a position, such as the GPS position of its EXIF or
+// XMP metadata, or none
+func positionHints(meta []metadata.Metadata) []string {
+	for _, m := range meta {
+		if ll, ok := m.Any().(geo.LatLong); ok && ll.Validate() == nil {
+			return []string{metadata.HintGeo}
+		} else if m.Key() == "GPSLatitude" && strings.TrimSpace(m.Value()) != "" {
+			return []string{metadata.HintGeo}
+		}
+	}
+	return nil
+}
 
 // isImage returns true when the content type is an image/ content type,
 // which the raster images' handler reads

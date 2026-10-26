@@ -119,7 +119,8 @@
       "dc:title": "picofuse: picofuse",
       "dc:type": "Text",
       "html:generator": "Doxygen 1.8.13",
-      "metadata:kind": "webpage"
+      "metadata:kind": "webpage",
+      "metadata:hint": "markdown"
     }
   },
   "sample.html": {
@@ -138,7 +139,8 @@
       "dc:type": "Text",
       "html:generator": "Handwritten",
       "html:og-image": "https://example.com/cover.png",
-      "metadata:kind": "webpage"
+      "metadata:kind": "webpage",
+      "metadata:hint": "markdown"
     },
     "markdown": "# Café\n\nSome **bold** text and a [link](https://example.com/).\n\n- one\n- two"
   },
@@ -157,7 +159,8 @@
       "dc:type": "Text",
       "markdown:draft": "false",
       "markdown:weight": "3",
-      "metadata:kind": "document"
+      "metadata:kind": "document",
+      "metadata:hint": "markdown"
     },
     "markdown": "# A Heading, Which Isn't the Title\n\nSome *emphasis*, **strong** text and a [link](https://example.com/).\n\n## A Second Heading\n\n- one\n- two\n"
   },
@@ -169,7 +172,8 @@
     "metadata": {
       "dc:title": "sample",
       "dc:type": "Text",
-      "metadata:kind": "document"
+      "metadata:kind": "document",
+      "metadata:hint": "markdown"
     },
     "markdown": "Café notes\n\nA “quoted” line, with \\*stars\\* and a # hash.  \n    An indented line  \n1\\. Not a list\n"
   },
@@ -188,7 +192,8 @@
       "pdf:pages": "2",
       "pdf:producer": "go-metadata",
       "pdf:version": "1.7",
-      "pdf:width-mm": "209.9"
+      "pdf:width-mm": "209.9",
+      "metadata:hint": "artwork,markdown"
     },
     "artwork": {
       "artwork:page0001": "image/jpeg",
@@ -209,7 +214,8 @@
       "pdf:pages": "3",
       "pdf:producer": "Canon EPP",
       "pdf:version": "1.7",
-      "pdf:width-mm": "209.9"
+      "pdf:width-mm": "209.9",
+      "metadata:hint": "artwork,markdown,ocr"
     },
     "artwork": {
       "artwork:page0001": "image/jpeg",
@@ -229,7 +235,8 @@
       "dc:date": "2024-05-01T09:00:00Z",
       "dc:title": "sample",
       "dc:type": "Collection",
-      "metadata:kind": "archive"
+      "metadata:kind": "archive",
+      "metadata:hint": "markdown"
     },
     "markdown": "| Name | Size | Modified |\n| --- | ---: | --- |\n| docs/ |  | 2024-05-01T09:00:00Z |\n| docs/readme.txt | 14 | 2024-05-01T09:00:00Z |\n| docs/notes \\*draft\\* \\| v2.md | 21 | 2024-05-01T09:00:00Z |\n| data.json | 17 | 2024-05-01T09:00:00Z |\n"
   },
@@ -244,7 +251,8 @@
       "dc:date": "2024-05-01T09:00:00Z",
       "dc:title": "sample",
       "dc:type": "Collection",
-      "metadata:kind": "archive"
+      "metadata:kind": "archive",
+      "metadata:hint": "markdown"
     },
     "markdown": "| Name | Size | Modified |\n| --- | ---: | --- |\n| docs/ |  | 2024-05-01T09:00:00Z |\n| docs/readme.txt | 14 | 2024-05-01T09:00:00Z |\n| docs/notes \\*draft\\* \\| v2.md | 21 | 2024-05-01T09:00:00Z |\n| data.json | 17 | 2024-05-01T09:00:00Z |\n"
   },
@@ -259,7 +267,8 @@
       "dc:date": "2024-05-01T09:00:00Z",
       "dc:title": "sample.tar",
       "dc:type": "Collection",
-      "metadata:kind": "archive"
+      "metadata:kind": "archive",
+      "metadata:hint": "markdown"
     },
     "markdown": "| Name | Size | Modified |\n| --- | ---: | --- |\n| docs/ |  | 2024-05-01T09:00:00Z |\n| docs/readme.txt | 14 | 2024-05-01T09:00:00Z |\n| docs/notes \\*draft\\* \\| v2.md | 21 | 2024-05-01T09:00:00Z |\n| data.json | 17 | 2024-05-01T09:00:00Z |\n"
   },
@@ -274,7 +283,8 @@
       "dc:date": "2024-05-01T09:00:00Z",
       "dc:title": "sample.txt",
       "dc:type": "Collection",
-      "metadata:kind": "archive"
+      "metadata:kind": "archive",
+      "metadata:hint": "markdown"
     },
     "markdown": "| Name | Size | Modified |\n| --- | ---: | --- |\n| notes.txt | 24 | 2024-05-01T09:00:00Z |\n"
   },
@@ -289,7 +299,8 @@
       "dc:date": "2024-05-01T09:00:00Z",
       "dc:title": "sample.tar",
       "dc:type": "Collection",
-      "metadata:kind": "archive"
+      "metadata:kind": "archive",
+      "metadata:hint": "markdown"
     },
     "markdown": "| Name | Size | Modified |\n| --- | ---: | --- |\n| docs/ |  | 2024-05-01T09:00:00Z |\n| docs/readme.txt | 14 | 2024-05-01T09:00:00Z |\n| docs/notes \\*draft\\* \\| v2.md | 21 | 2024-05-01T09:00:00Z |\n| data.json | 17 | 2024-05-01T09:00:00Z |\n"
   },
@@ -302,7 +313,8 @@
       "archive:size": "24",
       "dc:title": "sample.txt",
       "dc:type": "Collection",
-      "metadata:kind": "archive"
+      "metadata:kind": "archive",
+      "metadata:hint": "markdown"
     },
     "markdown": "| Name | Size | Modified |\n| --- | ---: | --- |\n| sample.txt | 24 |  |\n"
   },
@@ -350,7 +362,8 @@
       "dc:subject": "Samples",
       "dc:title": "Sample OpenDocument",
       "dc:type": "Text",
-      "metadata:kind": "document"
+      "metadata:kind": "document",
+      "metadata:hint": "artwork,markdown"
     },
     "artwork": {
       "artwork:thumbnail": "image/png"
@@ -369,7 +382,8 @@
       "dc:subject": "Computing, History",
       "dc:title": "A Sample Book",
       "dc:type": "Text",
-      "metadata:kind": "book"
+      "metadata:kind": "book",
+      "metadata:hint": "artwork,markdown"
     },
     "artwork": {
       "artwork:cover": "image/png"
@@ -391,7 +405,8 @@
       "dc:type": "Text",
       "metadata:kind": "book",
       "mobi:asin": "B000SAMPLE",
-      "mobi:type": "EBOK"
+      "mobi:type": "EBOK",
+      "metadata:hint": "artwork,markdown"
     },
     "artwork": {
       "artwork:cover": "image/png"
@@ -460,7 +475,8 @@
       "email:attachments": "I7B02 HTML.htm",
       "email:from": "Example Trading <sales@example.com>",
       "email:to": "kay 陳小姐 <kay@example.org>, Example Trading (tw) <sales@example.com>, Amy Chan (Example Trading) <amy@example.org>, Gary Lee <gary@example.net>",
-      "metadata:kind": "email"
+      "metadata:kind": "email",
+      "metadata:hint": "markdown"
     },
     "markdown": "# new product catalog (Netbeeper)\n\n- **From:** Example Trading \\<sales@example.com\\>\n- **To:** kay 陳小姐 \\<kay@example.org\\>, Example Trading (tw) \\<sales@example.com\\>, Amy Chan (Example Trading) \\<amy@example.org\\>, Gary Lee \\<gary@example.net\\>\n- **Date:** Fri, 27 Apr 2001 09:44 +0800\n- **Attachments:** I7B02 HTML.htm\n"
   },
@@ -473,7 +489,8 @@
       "dc:description": "this sounds like an excellent idea... what is the best way to proceed to make this happen? c",
       "dc:title": "eml eudora",
       "dc:type": "Text",
-      "metadata:kind": "email"
+      "metadata:kind": "email",
+      "metadata:hint": "markdown"
     },
     "markdown": "this sounds like an excellent idea...\\\nwhat is the best way to proceed to make this happen?\n\nc\n\n-----Original Message-----\\\nFrom: Alex Morgan \\[mailto:alex@example.com\\]\\\nSent: 24 August 2001 10:25\\\nTo: sam@example.com; chris@example.com\\\nSubject: RE: ieee and acm membership\n\nit works on individual basis. much like an MSDN account.\n\n> -----Original Message-----\\\n> From: Sam Taylor \\[mailto:sam@example.com\\]\\\n> Sent: Friday, August 24, 2001 10:16 AM\\\n> To: 'Alex Morgan'; chris@example.com\\\n> Subject: RE: ieee and acm membership\n\n> top idea. but isn't it possible to get a \"example\" account\\\n> and give each employee access to this account?\n\n> sam\n\n> > -----Original Message-----\\\n> > From: Alex Morgan \\[mailto:alex@example.com\\]\\\n> > Sent: Thursday, August 23, 2001 11:55\\\n> > To: sam@example.com; chris@example.com\\\n> > Subject: ieee and acm membership\n\n> > Hi,\n\n> > Do you think it'd be a good idea if Example pays for an\\\n> > IEEE Computer\\\n> > Society and/or ACM memberships for Example employees that\n\n> wish this?\n\n> > We could package a free IEEE and/or ACM membership as a\\\n> > Example employee\\\n> > benefit.\n\n> > ACM: http://www.acm.org\\\n> > IEEE: http://www.ieee.org\n\n> > Robin and myself are already members of IEEE, I'm also a\\\n> > member of ACM.\n\n> > Cost is about $150 per year for each per person.\n\n> > Greets,\\\n> > Alex\n"
   },
@@ -490,7 +507,8 @@
       "mbox:senders": "Ada Lovelace; charles@example.com; José",
       "mbox:date-start": "2002-02-11T13:10:00Z",
       "mbox:subjects": "Engine notes; Lunch?; Café mécanique",
-      "metadata:kind": "mailbox"
+      "metadata:kind": "mailbox",
+      "metadata:hint": "markdown"
     },
     "markdown": "# Engine notes\n\n- **From:** Ada Lovelace \\<ada@example.com\\>\n- **To:** Charles Babbage \\<charles@example.com\\>\n- **Date:** Mon, 11 Feb 2002 13:10 +0000\n\nCharles,\n\nFrom the start, the engine was meant to weave patterns.\\\nFrom what I hear, the cards are ready.\n\nAda\n\n# Lunch?\n\n- **From:** charles@example.com\n- **To:** ada@example.com\n- **Date:** Tue, 12 Feb 2002 10:02 +0000\n\nLunch on Thursday?\n\n# (no subject)\n\n- **From:** Ada Lovelace \\<ada@example.com\\>\n- **To:** charles@example.com\n- **Date:** Wed, 13 Feb 2002 09:29 +0000\n- **Attachments:** plan.doc\n\nThe plan is attached.\n\n# Café mécanique\n\n- **From:** José \\<jose@example.org\\>\n- **To:** ada@example.com\n- **Date:** Fri, 15 Feb 2002 15:29 +0100\n\nThe mechanical café opens on Monday.\n"
   },
@@ -506,7 +524,8 @@
       "csv:rows": "3",
       "dc:title": "csv excel",
       "dc:type": "Dataset",
-      "metadata:kind": "data"
+      "metadata:kind": "data",
+      "metadata:hint": "markdown"
     },
     "markdown": "| Produit | Prix | Quantité |\n| --- | --- | --- |\n| Café crème | 2,50 | 12 |\n| Thé à la menthe | 3,00 | 7 |\n| Croissant; beurre | 1,20 | 30 |\n"
   }

@@ -83,10 +83,12 @@ func pages09(t *testing.T) []byte {
 
 func Test_iwork_000(t *testing.T) {
 	// A document from Pages '09, which is a zip archive, is detected by its
-	// extension, and is a document, with its properties
+	// extension, and is a document, with its properties, and artwork, as it
+	// has a preview
 	contentType, got := extract(t, "report.pages", pages09(t))
 	want := map[string]string{
 		"metadata:kind":  "document",
+		"metadata:hint":  "artwork",
 		"dc:type":        "Text",
 		"dc:title":       "Quarterly Report",
 		"dc:creator":     "Ada Lovelace, Charles Babbage",
@@ -103,7 +105,8 @@ func Test_iwork_000(t *testing.T) {
 func Test_iwork_001(t *testing.T) {
 	// A presentation and a spreadsheet from iWork 2013 or later, with their
 	// template, when they were made from it, and the version which last
-	// saved them, and the title from their names
+	// saved them, and the title from their names, without hints, as they
+	// have no preview
 	history := []byte(`<plist version="1.0"><array><string>Template: Blank (2018-02-14 13:01)</string><string>M7.1-5683-2</string></array></plist>`)
 	for _, test := range []struct{ name, contentType, kind string }{
 		{"launch.key", "application/vnd.apple.keynote", "presentation"},
@@ -113,7 +116,7 @@ func Test_iwork_001(t *testing.T) {
 			"Index/Document.iwa":                 []byte("iwa"),
 			"Metadata/BuildVersionHistory.plist": history,
 		}))
-		if contentType != test.contentType || got["metadata:kind"] != test.kind || got["iwork:template"] != "Blank" || got["dc:date"] != "2018-02-14T13:01:00Z" || got["iwork:version"] != "7.1" {
+		if contentType != test.contentType || got["metadata:kind"] != test.kind || got["iwork:template"] != "Blank" || got["dc:date"] != "2018-02-14T13:01:00Z" || got["iwork:version"] != "7.1" || got["metadata:hint"] != "" {
 			t.Errorf("%s: got %q, %v", test.name, contentType, got)
 		}
 	}

@@ -62,8 +62,9 @@ func init() {
 		}
 	}
 
-	// The kind of a document, its properties, and its preview, as artwork,
-	// only when the artwork namespace is requested
+	// The kind of a document, its properties, the artwork hint, when it has
+	// a preview, and its preview, as artwork, only when the artwork
+	// namespace is requested
 	metadata.AddHandler(reContentType, Namespace, func(_ context.Context, r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
 		kind := metadata.KindMetadata(iworkKinds[o.ContentType()])
 		ra, size, err := readerAt(r)
@@ -75,6 +76,11 @@ func init() {
 			return kind, metadata.ErrBadParameter.With(err)
 		}
 		result := append(documentMetadata(doc), kind...)
+		if doc.Preview != nil {
+			// A document with a preview has artwork, but its content can't
+			// be read as Markdown yet
+			result = append(result, metadata.HintMetadata(metadata.HintArtwork)...)
+		}
 		if o.HasNamespace(metadata.ArtworkNamespace) && doc.Preview != nil {
 			if preview := artwork.Image(doc.Preview, previewKey, o); preview != nil {
 				result = append(result, preview)

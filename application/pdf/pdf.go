@@ -79,12 +79,23 @@ var (
 // in memory. A larger document has only the title from its name.
 var maxDocumentSize int64 = 64 << 20
 
+const (
+	// maxFontPages is the most of a document's pages which are read for
+	// fonts and images, to know whether it has text, or is scanned
+	maxFontPages = 20
+
+	// maxFormDepth is the most forms within forms which are read for fonts
+	// and images
+	maxFormDepth = 2
+)
+
 ////////////////////////////////////////////////////////////////////////////////
 // LIFECYCLE
 
 func init() {
 	metadata.AddHandler(reContentType, Namespace, func(ctx context.Context, r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
-		meta, err := pdfMetadata(ctx, r, o.Password())
+		meta, hints, err := pdfMetadata(ctx, r, o.Password())
+		meta = append(meta, metadata.HintMetadata(hints...)...)
 		return append(meta, metadata.KindMetadata(dc.KindDocument)...), err
 	}, dc.Namespace, Namespace, metadata.MetadataNamespace)
 
@@ -108,14 +119,16 @@ func init() {
 // in millimetres, as pdf:width-mm and pdf:height-mm. A title which is the name of the file the
 // document was made from isn't returned, so the title is from the
 // document's own name. A document larger than maxDocumentSize has no
-// properties.
-func pdfMetadata(ctx context.Context, r io.Reader, password string) ([]metadata.Metadata, error) {
+// properties. It returns the hints of a document with pages, which are
+// artwork, as its first page is drawn, markdown, when a page has text, and
+// ocr, when a page is scanned (see pageContent).
+func pdfMetadata(ctx context.Context, r io.Reader, password string) ([]metadata.Metadata, []string, error) {
 	doc, err := validate(ctx, r, password)
 	var encrypted encryptedError
 	if errors.As(err, &encrypted) {
-		return encrypted.metadata(), encrypted.wrongPassword(password)
+		return encrypted.metadata(), nil, encrypted.wrongPassword(password)
 	} else if err != nil || doc == nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// The properties are from the XMP metadata, or the document information
@@ -167,7 +180,80 @@ func pdfMetadata(ctx context.Context, r io.Reader, password string) ([]metadata.
 	if info.Encrypt != nil {
 		add(Namespace, "encrypted", true)
 	}
-	return slices.Collect(maps.Values(entries)), nil
+
+	// The hints of a document with pages
+	var hints []string
+	if doc.PageCount > 0 {
+		hints = append(hints, metadata.HintArtwork)
+		text, scanned := pageContent(ctx, info)
+		if text {
+			hints = append(hints, metadata.HintMarkdown)
+		}
+		if scanned {
+			hints = append(hints, metadata.HintOCR)
+		}
+	}
+	return slices.Collect(maps.Values(entries)), hints, nil
+}
+
+// pageContent returns whether one of the document's first maxFontPages pages
+// has text, as it uses a font, or a form drawn on it does, as text is drawn
+// with fonts, and whether one is scanned, as it draws an image, without a
+// font. Only the pages' resources are read, rather than their text.
+func pageContent(ctx context.Context, x *model.XRefTable) (text, scanned bool) {
+	for page := 1; page <= min(x.PageCount, maxFontPages) && !(text && scanned); page++ {
+		// The page's own resources, or those it inherits
+		dict, _, attrs, err := x.PageDict(ctx, page, false)
+		if err != nil || dict == nil {
+			continue
+		}
+		resources, err := x.DereferenceDict(dict["Resources"])
+		if (err != nil || resources == nil) && attrs != nil {
+			resources = attrs.Resources
+		}
+		fonts, images := resourceContent(x, resources, 0)
+		if fonts {
+			text = true
+		} else if images {
+			scanned = true
+		}
+	}
+	return text, scanned
+}
+
+// resourceContent returns whether the resources have a font, and an image,
+// or a form in them, to the depth of maxFormDepth forms within forms, has
+// one
+func resourceContent(x *model.XRefTable, resources types.Dict, depth int) (fonts, images bool) {
+	if resources == nil {
+		return false, false
+	}
+	if dict, err := x.DereferenceDict(resources["Font"]); err == nil && len(dict) > 0 {
+		fonts = true
+	}
+	xobjects, err := x.DereferenceDict(resources["XObject"])
+	if err != nil {
+		return fonts, images
+	}
+	for _, object := range xobjects {
+		stream, _, err := x.DereferenceStreamDict(object)
+		if err != nil || stream == nil || stream.Subtype() == nil {
+			continue
+		}
+		switch *stream.Subtype() {
+		case "Image":
+			images = true
+		case "Form":
+			if depth >= maxFormDepth {
+				continue
+			}
+			if formResources, err := x.DereferenceDict(stream.Dict["Resources"]); err == nil {
+				formFonts, formImages := resourceContent(x, formResources, depth+1)
+				fonts, images = fonts || formFonts, images || formImages
+			}
+		}
+	}
+	return fonts, images
 }
 
 // validate reads and validates the document, which sets its document

@@ -3,6 +3,7 @@ package text
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"io"
 	"strings"
 	"unicode/utf8"
@@ -26,6 +27,11 @@ type utf8Reader struct {
 	err     error
 }
 
+// errReader returns an error when it's read
+type errReader struct {
+	err error
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // GLOBALS
 
@@ -36,6 +42,10 @@ const (
 
 	// readSize is how much of a text is read at a time
 	readSize = 32 << 10
+
+	// hasTextSize is how much of the start of a text is read to know
+	// whether it has text
+	hasTextSize = 4 << 10
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -45,10 +55,15 @@ const (
 // of any size is read a part at a time, rather than in memory: from the
 // character set of its byte order mark, or UTF-8 when its start is valid
 // UTF-8, or else Windows-1252, as Decode does. Sequences of UTF-8 which
-// aren't valid, after its start, are replaced.
+// aren't valid, after its start, are replaced. When its start can't be
+// read, the reader returns the error.
 func NewReader(r io.Reader) io.Reader {
 	b := bufio.NewReaderSize(r, sniffSize)
-	head, _ := b.Peek(sniffSize)
+	head, err := b.Peek(sniffSize)
+	if err != nil && !errors.Is(err, io.EOF) {
+		// The text can't be read, which the reader returns
+		return errReader{err}
+	}
 	switch {
 	case bytes.HasPrefix(head, bomUTF8):
 		b.Discard(len(bomUTF8))
@@ -60,38 +75,6 @@ func NewReader(r io.Reader) io.Reader {
 	default:
 		return transform.NewReader(b, charmap.Windows1252.NewDecoder())
 	}
-}
-
-// WriteMarkdownFrom writes the text read from r as Markdown, as
-// WriteMarkdown does, a line at a time, as it's read, so it stops reading
-// when a write returns an error, such as when the writer has the part of
-// the Markdown it keeps
-func WriteMarkdownFrom(w io.StringWriter, r io.Reader) error {
-	next := lines(r)
-	line, more, err := next()
-	for err == nil && more {
-		var following string
-		var hasNext bool
-		following, hasNext, err = next()
-		if err != nil {
-			return err
-		}
-		var end string
-		switch {
-		case !hasNext:
-			end = ""
-		case line == "" || strings.TrimSpace(following) == "":
-			end = "\n"
-		default:
-			// A hard line break, so the line isn't joined to the next
-			end = "  \n"
-		}
-		if _, err := w.WriteString(markdownLine(strings.TrimRight(line, " \t")) + end); err != nil {
-			return err
-		}
-		line, more = following, hasNext
-	}
-	return err
 }
 
 // WriteCodeBlock writes the text read from r as a fenced Markdown code block
@@ -160,6 +143,11 @@ func WriteCodeBlock(w io.StringWriter, language string, r io.Reader) error {
 	return err
 }
 
+// Read returns the error
+func (r errReader) Read([]byte) (int, error) {
+	return 0, r.err
+}
+
 // Read implements io.Reader, with the sequences which aren't valid UTF-8
 // replaced
 func (u *utf8Reader) Read(p []byte) (int, error) {
@@ -187,37 +175,6 @@ func (u *utf8Reader) Read(p []byte) (int, error) {
 
 ////////////////////////////////////////////////////////////////////////////////
 // PRIVATE METHODS
-
-// lines returns a function which returns the lines of the text read from r,
-// one at a time, without their line breaks, which are a line feed, a
-// carriage return and a line feed, or a carriage return, and whether there
-// was one, as the lines of strings.Split are, so a text which ends with a
-// line break has an empty line at its end
-func lines(r io.Reader) func() (string, bool, error) {
-	b := bufio.NewReaderSize(r, readSize)
-	var queue []string
-	done := false
-	return func() (string, bool, error) {
-		for len(queue) == 0 {
-			if done {
-				return "", false, nil
-			}
-			chunk, err := b.ReadString('\n')
-			if err == io.EOF {
-				done = true
-			} else if err != nil {
-				return "", false, err
-			}
-			if line, found := strings.CutSuffix(chunk, "\n"); found {
-				chunk = strings.TrimSuffix(line, "\r")
-			}
-			queue = strings.Split(chunk, "\r")
-		}
-		line := queue[0]
-		queue = queue[1:]
-		return line, true, nil
-	}
-}
 
 // WriteLF writes the text read from r to w, without its carriage returns
 // before line feeds, as it's read, so it stops reading when a write returns
@@ -278,4 +235,20 @@ func codeBlock(language, text string) string {
 // from is used again
 func clone(data []byte) []byte {
 	return append([]byte(nil), data...)
+}
+
+// HasText returns true when the start of the text has a character which
+// isn't white space, and no NUL, as text which is binary has, which is
+// read without moving r, when it can be read at an offset, as a handler's
+// input can
+func HasText(r io.Reader) bool {
+	buf := make([]byte, hasTextSize)
+	var n int
+	if ra, ok := r.(io.ReaderAt); ok {
+		n, _ = ra.ReadAt(buf, 0)
+	} else {
+		n, _ = io.ReadFull(r, buf)
+	}
+	data := buf[:n]
+	return bytes.IndexByte(data, 0) < 0 && len(bytes.TrimSpace(data)) > 0
 }

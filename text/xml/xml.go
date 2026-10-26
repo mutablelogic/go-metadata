@@ -76,6 +76,9 @@ func init() {
 			return nil, nil
 		}
 		kind := metadata.KindMetadata(dc.KindData)
+		if itext.HasText(r) {
+			kind = append(kind, metadata.HintMetadata(metadata.HintMarkdown)...)
+		}
 		seeker, ok := r.(io.Seeker)
 		if !ok {
 			// The document is read in memory, up to itext.MaxBytes

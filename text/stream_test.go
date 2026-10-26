@@ -65,6 +65,7 @@ func Test_stream_001(t *testing.T) {
 		{"application/ld+json", "json", "data"},
 		{"application/geo+json", "json", "data"},
 		{"application/x-ndjson", "json", "data"},
+		{"application/vnd.example_record+json", "json", "data"},
 		{mime.TypeByExtension(".geojson"), "json", "data"},
 	} {
 		body, values := markdownOf(t, "x = 1\n", test.contentType, ":")
@@ -101,9 +102,11 @@ func Test_stream_003(t *testing.T) {
 		{"---\r\ntitle: A\r\n...\r\n# Body\r\n", "# Body\n"},
 		{"---\ntitle: A\n", "---\ntitle: A\n"},
 		{"# Body\r\ntext", "# Body\ntext"},
+		{"---\n" + strings.Repeat("a", 2<<20), "---\n" + strings.Repeat("a", 2<<20)},
+		{"---\n" + strings.Repeat("a", 20<<10) + "\n---\nBody", "Body"},
 	} {
 		if body, _ := markdownOf(t, test.document, "text/markdown", ":"); body != test.want {
-			t.Errorf("%q: expected %q, got %q", test.document, test.want, body)
+			t.Errorf("%q: expected %q, got %q", test.document[:min(len(test.document), 40)], test.want[:min(len(test.want), 40)], body[:min(len(body), 40)])
 		}
 	}
 }

@@ -24,6 +24,7 @@ import (
 	dc "github.com/mutablelogic/go-metadata/dublincore"
 	meta "github.com/mutablelogic/go-metadata/internal/meta"
 	geo "github.com/mutablelogic/go-metadata/pkg/geo"
+	tmdb "github.com/mutablelogic/go-metadata/pkg/tmdb"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -114,7 +115,12 @@ func init() {
 		if d := rd.Duration(); d > 0 {
 			result = append(result, meta.New(VideoNamespace, "duration", d))
 		}
-		return append(append(result, streamMetadata(rd.Streams())...), kind...), nil
+		result = append(result, streamMetadata(rd.Streams())...)
+		var name string
+		if named, ok := r.(metadata.NamedReader); ok {
+			name = named.Name()
+		}
+		return append(append(result, kind...), metadata.HintMetadata(videoHints(result, name)...)...), nil
 	}, VideoNamespace, AudioNamespace, QuickTimeNamespace, dc.Namespace, metadata.MetadataNamespace)
 }
 
@@ -211,6 +217,30 @@ func tagMetadata(tags []gomedia.Metadata) []metadata.Metadata {
 		add(dc.Namespace, dc.Date, t)
 	}
 	return result
+}
+
+// videoHints returns the hints of a video, from its metadata and its name:
+// its artwork, when it has a video stream, as a frame can be its thumbnail,
+// its place, when it has a position, and its collection, when it's an
+// episode of a show, by its tags, or a name such as Show.S01E02.mkv
+func videoHints(meta []metadata.Metadata, name string) []string {
+	var hints []string
+	if slices.ContainsFunc(meta, func(m metadata.Metadata) bool { return m.NS() == VideoNamespace && m.Key() == "codec" }) {
+		hints = append(hints, metadata.HintArtwork)
+	}
+	if slices.ContainsFunc(meta, func(m metadata.Metadata) bool {
+		ll, ok := m.Any().(geo.LatLong)
+		return ok && ll.Validate() == nil
+	}) {
+		hints = append(hints, metadata.HintGeo)
+	}
+	show := slices.ContainsFunc(meta, func(m metadata.Metadata) bool {
+		return m.NS() == VideoNamespace && m.Key() == "show" && strings.TrimSpace(m.Value()) != ""
+	})
+	if show || (name != "" && tmdb.ExtractQuery(name).Episode > 0) {
+		hints = append(hints, metadata.HintCollection)
+	}
+	return hints
 }
 
 // streamMetadata returns the codec, width and height of the first video

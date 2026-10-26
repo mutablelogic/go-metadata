@@ -44,6 +44,7 @@ func Test_rtf_000(t *testing.T) {
 	got := extract(t, document)
 	want := map[string]string{
 		"metadata:kind":   "document",
+		"metadata:hint":   "markdown",
 		"dc:type":         "Text",
 		"dc:title":        "Quarterly “Report”",
 		"dc:subject":      "Search",
@@ -80,18 +81,20 @@ func Test_rtf_001(t *testing.T) {
 
 func Test_rtf_002(t *testing.T) {
 	// A Mac document, in the Mac Roman code page, from Cocoa, without an
-	// info group, and an untitled title isn't the title
+	// info group, and an untitled title isn't the title, and a document with
+	// text has the markdown hint, which one without text doesn't
 	for _, test := range []struct {
 		data string
 		want map[string]string
 	}{
 		{`{\rtf1\mac\ansicpg10000\cocoartf102{\fonttbl\f0\froman Times;}\f0 Caf\'8e\par}`, map[string]string{
-			"metadata:kind": "document", "dc:type": "Text", "rtf:application": "Cocoa",
+			"metadata:kind": "document", "metadata:hint": "markdown", "dc:type": "Text", "rtf:application": "Cocoa",
 		}},
 		{`{\rtf1\ansi{\info{\title Microsoft Word - report.doc}{\author A}}Text\par}`, map[string]string{
-			"metadata:kind": "document", "dc:type": "Text", "dc:creator": "A",
+			"metadata:kind": "document", "metadata:hint": "markdown", "dc:type": "Text", "dc:creator": "A",
 		}},
-		{`not rtf at all`, map[string]string{"metadata:kind": "document", "dc:type": "Text"}},
+		{`not rtf at all`, map[string]string{"metadata:kind": "document", "metadata:hint": "markdown", "dc:type": "Text"}},
+		{`{\rtf1\ansi{\info{\author A}}}`, map[string]string{"metadata:kind": "document", "dc:type": "Text", "dc:creator": "A"}},
 	} {
 		if got := extract(t, test.data); !maps.Equal(got, test.want) {
 			t.Errorf("%q: got %v, want %v", test.data, got, test.want)

@@ -29,7 +29,7 @@ func extract(t *testing.T, contentType, data string, opts ...metadata.Option) ma
 }
 
 // data is the kind of an XML document
-var data = map[string]string{"metadata:kind": "data", "dc:type": "Dataset"}
+var data = map[string]string{"metadata:kind": "data", "dc:type": "Dataset", "metadata:hint": "markdown"}
 
 // with returns the kind of an XML document, with the metadata
 func with(values map[string]string) map[string]string {

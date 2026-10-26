@@ -120,6 +120,11 @@ const (
 	// metadata namespace (see the kinds in the dublincore package)
 	KindKey = "kind"
 
+	// HintKey is the key of the hints of what to read of the input next, in
+	// the metadata namespace, such as its Markdown, which are a list of the
+	// hints of all the handlers which read it (see HintMetadata)
+	HintKey = "hint"
+
 	// ArtworkNamespace is the namespace of images which represent a
 	// document, such as the thumbnails of its pages, which a handler
 	// returns only when it's requested, as extracting them is expensive
@@ -193,6 +198,19 @@ func AddHandlerAfterWithPriority(re *regexp.Regexp, name string, priority int, a
 	defer handlerlock.Unlock()
 	handlers = append(handlers, entry{name: name, re: re, priority: priority, namespaces: namespaces, handler: fn, after: after})
 	cached = make(map[string][]entry)
+}
+
+// HintMetadata returns the metadata of the hints of what to read of an input
+// next, which a handler returns for an input it reads, such as HintMarkdown
+// when it has content which can be read as Markdown, as metadata:hint, or
+// nil when there are none. Extract returns the hints of all the handlers
+// which read an input as one list, in order, whatever their priorities. A
+// handler which returns it registers the metadata namespace.
+func HintMetadata(hints ...string) []Metadata {
+	if len(hints) == 0 {
+		return nil
+	}
+	return []Metadata{hintMeta(slices.Clone(hints))}
 }
 
 // KindMetadata returns the metadata of the kind of an input, such as a book
@@ -477,6 +495,7 @@ func combine(results []result) []Metadata {
 		return cmp.Compare(b.priority, a.priority)
 	})
 	var meta []Metadata
+	var hints hintMeta
 	claimed := make(map[string]int)
 	for i, r := range results {
 		// The keys which handlers with the same priority claim once
@@ -493,11 +512,19 @@ func combine(results []result) []Metadata {
 		for _, m := range r.meta {
 			if m == nil {
 				continue
+			} else if hint, ok := m.(hintMeta); ok {
+				// The hints of every handler, whatever its priority
+				hints = append(hints, hint...)
+				continue
 			} else if priority, exists := claimed[metaKey(m)]; exists && priority > r.priority {
 				continue
 			}
 			meta = append(meta, m)
 		}
+	}
+	if len(hints) > 0 {
+		slices.Sort(hints)
+		meta = append(meta, slices.Compact(hints))
 	}
 	return meta
 }
@@ -540,6 +567,16 @@ func has(ns, key string) func(Metadata) bool {
 // valueMeta is metadata which Extract adds, such as the title from the
 // input's name, or which a handler returns, such as its kind (see
 // KindMetadata)
+// hintMeta is the hints of what to read of an input next, as metadata:hint
+type hintMeta []string
+
+func (m hintMeta) NS() string         { return MetadataNamespace }
+func (m hintMeta) Key() string        { return HintKey }
+func (m hintMeta) Value() string      { return strings.Join(m, ",") }
+func (m hintMeta) Bytes() []byte      { return []byte(m.Value()) }
+func (m hintMeta) Image() image.Image { return nil }
+func (m hintMeta) Any() any           { return []string(m) }
+
 type valueMeta struct {
 	ns, key, value string
 }

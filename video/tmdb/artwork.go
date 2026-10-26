@@ -2,6 +2,7 @@ package tmdb
 
 import (
 	"context"
+	"slices"
 
 	// Packages
 	metadata "github.com/mutablelogic/go-metadata"
@@ -49,6 +50,20 @@ func (m *match) images(dimension int) []tmdbImage {
 		tmdbImage{posterKey, tmdb.PosterSize(dimension), m.show.PosterPath},
 		tmdbImage{backdropKey, tmdb.BackdropSize(dimension), m.show.BackdropPath},
 	)
+}
+
+// hints returns the hints of the movie, show or episode: its artwork, when
+// it has an image, and its collection, when it's a show's, or an episode of
+// one, which aren't downloaded
+func (m *match) hints() []string {
+	var hints []string
+	if slices.ContainsFunc(m.images(0), func(image tmdbImage) bool { return image.path != "" }) {
+		hints = append(hints, metadata.HintArtwork)
+	}
+	if m.show != nil {
+		hints = append(hints, metadata.HintCollection)
+	}
+	return hints
 }
 
 // artwork returns the images of the movie, show or episode, downloaded

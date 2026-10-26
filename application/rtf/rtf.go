@@ -45,8 +45,9 @@ func init() {
 		panic(err)
 	}
 
-	// The kind of an RTF document, its properties, and its text as
-	// Markdown, only when the markdown namespace is requested
+	// The kind of an RTF document, its properties, the markdown hint, when it
+	// has text, and its text as Markdown, only when the markdown namespace is
+	// requested
 	metadata.AddHandler(reContentType, "rtf", func(_ context.Context, r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
 		kind := metadata.KindMetadata(dc.KindDocument)
 		data, err := io.ReadAll(io.LimitReader(r, maxSize))
@@ -55,6 +56,10 @@ func init() {
 		}
 		doc := rtf.Parse(data)
 		result := append(infoMetadata(doc.Info), kind...)
+		if len(doc.Paragraphs) > 0 {
+			// A document with text can be read as Markdown
+			result = append(result, metadata.HintMetadata(metadata.HintMarkdown)...)
+		}
 		if !o.HasNamespace(metadata.MarkdownNamespace) {
 			return result, nil
 		}

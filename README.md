@@ -220,6 +220,20 @@ typed value, such as a time or a number, or an image. When a handler fails, `Ext
 the metadata which was extracted along with the error, and `ErrNotImplemented` when there's no
 handler for the content type.
 
+The `metadata` namespace describes the file itself: `metadata:kind` is what it is, such as a
+book or a conversation, and `metadata:hint` is a list of hints of what to read of it next, as
+the handlers which read it found, so an indexer knows what's worth the work:
+
+| Hint | |
+| --- | --- |
+| `markdown` | It has content which can be read as Markdown, such as a document's text, to index |
+| `artwork` | It has artwork which can be extracted, such as a cover, a thumbnail, or a video's frames |
+| `ocr` | It has pages which are images, such as a scanned PDF, whose text can be recognised |
+| `transcription` | It's audio without MusicBrainz or AcoustID tags, which may be speech |
+| `collection` | It's part of a collection: a track with an album, or an episode of a show |
+| `event` | It has events, such as a calendar's, a contact's birthday, or an invitation |
+| `geo` | It has places, such as where a photo was taken, a contact's address, or GeoJSON |
+
 Options change what's extracted:
 
 | Option | |

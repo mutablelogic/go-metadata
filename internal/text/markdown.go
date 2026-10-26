@@ -39,26 +39,6 @@ func WriteMarkdown(w io.StringWriter, text string) error {
 	return WriteMarkdownFrom(w, strings.NewReader(text))
 }
 
-// markdownLine returns a line of text as Markdown, with its characters which
-// are Markdown escaped, and its indentation as non-breaking spaces, so it
-// isn't code
-func markdownLine(line string) string {
-	body := strings.TrimLeft(line, " \t")
-	indent := line[:len(line)-len(body)]
-	indent = strings.ReplaceAll(strings.ReplaceAll(indent, "\t", "    "), " ", " ")
-
-	// Escape the characters which are Markdown anywhere, and then those
-	// which are only Markdown at the start of a line, such as a heading,
-	// a list item or a rule
-	body = escaper.Replace(body)
-	if m := reListItem.FindStringSubmatch(body); m != nil {
-		body = m[1] + `\` + body[len(m[1]):]
-	} else if body != "" && strings.ContainsRune("#-+=", rune(body[0])) {
-		body = `\` + body
-	}
-	return indent + body
-}
-
 // Escape returns the text as Markdown within a line, such as a cell of a
 // table, with its characters which are Markdown escaped, and its line
 // breaks and tabs as spaces

@@ -44,6 +44,8 @@ var (
 // LIFECYCLE
 
 func init() {
+	// The metadata of a HEIF image, and hints of its artwork, when it has a
+	// thumbnail, and its place, when it has a GPS position
 	metadata.AddHandler(reContentType, "heif", func(_ context.Context, r io.Reader, _ *metadata.Opts) ([]metadata.Metadata, error) {
 		h, err := heif.Read(r)
 		if err != nil {
@@ -52,8 +54,13 @@ func init() {
 			return nil, nil
 		}
 		defer h.Close()
-		return heifMetadata(h.Metadata()), nil
-	}, imageexif.TIFFNamespace, imageexif.EXIFNamespace, dc.Namespace, Namespace, XMPNamespace)
+		result := heifMetadata(h.Metadata())
+		hints := imageexif.PositionHints(result)
+		if len(h.Thumbnails()) > 0 {
+			hints = append(hints, metadata.HintArtwork)
+		}
+		return append(result, metadata.HintMetadata(hints...)...), nil
+	}, imageexif.TIFFNamespace, imageexif.EXIFNamespace, dc.Namespace, Namespace, XMPNamespace, metadata.MetadataNamespace)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

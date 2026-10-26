@@ -117,3 +117,14 @@ func Test_archive_004(t *testing.T) {
 		t.Errorf("expected ErrBadParameter, got %v", err)
 	}
 }
+
+func Test_archive_hints(t *testing.T) {
+	// An archive with entries has the markdown hint, as its table of
+	// contents is Markdown, and an empty archive doesn't
+	if got, err := extract(t, tarFile(t, 2), "application/x-tar"); err != nil || got["metadata:hint"] != "markdown" {
+		t.Errorf("expected the markdown hint, got %v, %v", got, err)
+	}
+	if got, err := extract(t, tarFile(t, 0), "application/x-tar"); err != nil || got["metadata:hint"] != "" {
+		t.Errorf("expected no hint, got %v, %v", got, err)
+	}
+}

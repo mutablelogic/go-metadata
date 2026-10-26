@@ -73,10 +73,17 @@ func Test_srt_001(t *testing.T) {
 }
 
 func Test_srt_002(t *testing.T) {
-	// Without the markdown namespace, subtitles are only their kind
+	// Without the markdown namespace, subtitles are only their kind, and a
+	// hint of their Markdown, as they have cues
 	got := extract(t, strings.NewReader(srt))
-	if len(got) != 2 || got["metadata:kind"] != "subtitles" || got["dc:type"] != "Text" {
-		t.Errorf("expected only the kind, got %v", got)
+	if len(got) != 3 || got["metadata:kind"] != "subtitles" || got["dc:type"] != "Text" || got["metadata:hint"] != "markdown" {
+		t.Errorf("expected only the kind and the hint, got %v", got)
+	}
+
+	// Subtitles without a cue have no hint
+	got = extract(t, strings.NewReader("not subtitles\n"))
+	if _, exists := got["metadata:hint"]; exists {
+		t.Errorf("expected no hint, got %v", got)
 	}
 }
 

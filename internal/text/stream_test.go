@@ -115,13 +115,20 @@ func Test_stream_002(t *testing.T) {
 	}
 
 	// The lines are those of WriteMarkdown
-	for _, text := range []string{"", "a", "a\n", "a\r\nb", "a\rb", "a\r", "\n\n", "a\n\nb\n"} {
+	for _, text := range []string{
+		"", "a", "a\n", "a\r\nb", "a\rb", "a\r", "\n\n", "a\n\nb\n", " \na", "a \n \nb", "a\t \nb",
+		"  indented\n\tand a tab", "# heading\n- list\n+ plus\n= rule", "12. item\n3) item\n12 not\n42", "1.5 times",
+		"some *emphasis* and a [link](x) and <tag>", "\f\na", "a\n\u00a0\nb", "  \u00a0x", "a  b  ",
+	} {
 		var streamed, whole strings.Builder
 		if err := WriteMarkdownFrom(&streamed, strings.NewReader(text)); err != nil {
 			t.Fatal(err)
 		}
 		lines := strings.Split(strings.ReplaceAll(strings.ReplaceAll(text, "\r\n", "\n"), "\r", "\n"), "\n")
+		// As WriteMarkdown wrote a line at a time, which is without the
+		// spaces and tabs at its end before it's known whether it's empty
 		for i, line := range lines {
+			line = strings.TrimRight(line, " \t")
 			end := "  \n"
 			switch {
 			case i == len(lines)-1:
@@ -129,13 +136,41 @@ func Test_stream_002(t *testing.T) {
 			case line == "" || strings.TrimSpace(lines[i+1]) == "":
 				end = "\n"
 			}
-			whole.WriteString(markdownLine(strings.TrimRight(line, " \t")) + end)
+			whole.WriteString(markdownLine(line) + end)
 		}
 		if streamed.String() != whole.String() {
 			t.Errorf("%q: expected %q, got %q", text, whole.String(), streamed.String())
 		}
 	}
 }
+
+func Test_stream_004(t *testing.T) {
+	// A text without line breaks stops being read once the writer has its
+	// part, rather than being read a line at a time
+	text := strings.Repeat("words and more words ", 1<<20)
+	r := &countingReader{ReadSeeker: strings.NewReader(text)}
+	w := &limitWriter{limit: 100}
+	if err := WriteMarkdownFrom(w, NewReader(r)); !errors.Is(err, errLimit) {
+		t.Fatalf("expected the limit, got %v", err)
+	}
+	if r.n > sniffSize+2*readSize {
+		t.Errorf("read %d bytes of %d, for %d of Markdown", r.n, len(text), w.Len())
+	}
+}
+
+func Test_stream_005(t *testing.T) {
+	// When the start of the text can't be read, the reader returns the error
+	errRead := errors.New("read")
+	data, err := io.ReadAll(NewReader(io.MultiReader(strings.NewReader("partial"), errorReader{errRead})))
+	if !errors.Is(err, errRead) {
+		t.Errorf("expected the error, got %q, %v", data, err)
+	}
+}
+
+// errorReader returns an error when it's read
+type errorReader struct{ err error }
+
+func (r errorReader) Read([]byte) (int, error) { return 0, r.err }
 
 func Test_stream_003(t *testing.T) {
 	// The text is written without its carriage returns before line feeds,
@@ -148,4 +183,25 @@ func Test_stream_003(t *testing.T) {
 	if want := strings.Repeat("x", readSize-1) + "\nend\r"; b.String() != want {
 		t.Errorf("expected the text without its carriage return before a line feed")
 	}
+}
+
+// markdownLine returns a line of text as Markdown, as WriteMarkdown did a
+// line at a time, which the conversion a character at a time is tested with,, with its characters which
+// are Markdown escaped, and its indentation as non-breaking spaces, so it
+// isn't code
+func markdownLine(line string) string {
+	body := strings.TrimLeft(line, " \t")
+	indent := line[:len(line)-len(body)]
+	indent = strings.ReplaceAll(strings.ReplaceAll(indent, "\t", "    "), " ", " ")
+
+	// Escape the characters which are Markdown anywhere, and then those
+	// which are only Markdown at the start of a line, such as a heading,
+	// a list item or a rule
+	body = escaper.Replace(body)
+	if m := reListItem.FindStringSubmatch(body); m != nil {
+		body = m[1] + `\` + body[len(m[1]):]
+	} else if body != "" && strings.ContainsRune("#-+=", rune(body[0])) {
+		body = `\` + body
+	}
+	return indent + body
 }

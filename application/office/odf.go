@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"io/fs"
 	"maps"
 	"regexp"
 	"slices"
@@ -69,9 +70,9 @@ func init() {
 // they're set, and its thumbnail, which is a picture of its first page,
 // sheet or slide, as artwork:thumbnail, when artwork is requested, and its
 // content as Markdown, when it's requested, a part at a time (see
-// metadata.WithRange). A title which is the name of the file the document
-// was made from isn't returned, so the title is from the document's own
-// name.
+// metadata.WithRange), and its hints (see documentHints). A title which is
+// the name of the file the document was made from isn't returned, so the
+// title is from the document's own name.
 func odfMetadata(r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
 	// A document is a zip archive, which is read in place, or from memory,
 	// unless it's too large, when it has only the title from its name
@@ -126,5 +127,6 @@ func odfMetadata(r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
 	if err := addMarkdown(entries, archive, o, odfMarkdown); err != nil {
 		return nil, err
 	}
-	return slices.Collect(maps.Values(entries)), nil
+	_, err = fs.Stat(archive, odfContentPath)
+	return append(slices.Collect(maps.Values(entries)), documentHints(archive, err == nil, odfThumbnailPath)...), nil
 }

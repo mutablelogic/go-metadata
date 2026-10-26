@@ -199,9 +199,13 @@ var aliasTypes = map[string]string{
 	"application/x-jsonlines":  "application/x-ndjson",
 }
 
+// geoJSONType is the type of GeoJSON, whose data is places
+const geoJSONType = "application/geo+json"
+
 // reJSON matches the types of data which is JSON, such as
-// application/ld+json, by their suffix
-var reJSON = regexp.MustCompile(`^application/[a-z0-9.+-]+\+json$`)
+// application/ld+json, by their suffix, whose subtypes have the characters
+// RFC 6838 allows
+var reJSON = regexp.MustCompile(`^application/[A-Za-z0-9!#$&^_.+-]+\+json$`)
 
 // languages are the names of the languages of the content types of source
 // code, in the info string of a Markdown code block
@@ -237,7 +241,7 @@ func init() {
 	// The kind of the source code, and its content, as a code block in its
 	// language, only when the markdown namespace is requested
 	metadata.AddHandler(regexp.MustCompile(`^(?:`+strings.Join(contentTypes, "|")+`)$`), "sourcecode", func(_ context.Context, r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
-		kind := metadata.KindMetadata(sourceKind(o.ContentType()))
+		kind := append(metadata.KindMetadata(sourceKind(o.ContentType())), hints(o.ContentType(), r)...)
 		if !o.HasNamespace(metadata.MarkdownNamespace) {
 			return kind, nil
 		}
@@ -263,6 +267,18 @@ func sourceKind(contentType string) string {
 		return dc.KindData
 	}
 	return dc.KindCode
+}
+
+// hints returns the hints of source code which has text: that it can be
+// read as Markdown, and for GeoJSON, that it has places, which is read
+// without moving r
+func hints(contentType string, r io.Reader) []metadata.Metadata {
+	if !itext.HasText(r) {
+		return nil
+	} else if contentType == geoJSONType {
+		return metadata.HintMetadata(metadata.HintMarkdown, metadata.HintGeo)
+	}
+	return metadata.HintMetadata(metadata.HintMarkdown)
 }
 
 // language returns the name of the language of the content type, in the

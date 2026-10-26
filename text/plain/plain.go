@@ -32,28 +32,42 @@ func init() {
 	// The content of the document as Markdown, only when the markdown
 	// namespace is requested
 	metadata.AddHandler(reContentType, "plain", func(_ context.Context, r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
-		kind := metadata.KindMetadata(dc.KindDocument)
+		result := append(metadata.KindMetadata(dc.KindDocument), hints(r)...)
 		if !o.HasNamespace(metadata.MarkdownNamespace) {
-			return kind, nil
+			return result, nil
 		}
 		meta, err := markdown(r, o)
-		return append(meta, kind...), err
+		return append(meta, result...), err
 	}, metadata.MarkdownNamespace, metadata.MetadataNamespace, dc.Namespace)
 
 	// The content of text which no other handler reads, such as text/x-log,
-	// as plain text, only when the markdown namespace is requested, with the
-	// least priority, so it's only the content of text without another
-	// handler
+	// as plain text, only when the markdown namespace is requested, and the
+	// hint that it has text, with the least priority, so it's only the
+	// content of text without another handler
 	metadata.AddHandlerWithPriority(reText, "plain-text", metadata.DefaultPriority-1, func(_ context.Context, r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
-		if !o.HasNamespace(metadata.MarkdownNamespace) || len(metadata.GetHandlers(o.ContentType())) > 1 {
+		if len(metadata.GetHandlers(o.ContentType())) > 1 {
 			return nil, nil
 		}
-		return markdown(r, o)
-	}, metadata.MarkdownNamespace)
+		result := hints(r)
+		if !o.HasNamespace(metadata.MarkdownNamespace) {
+			return result, nil
+		}
+		meta, err := markdown(r, o)
+		return append(meta, result...), err
+	}, metadata.MarkdownNamespace, metadata.MetadataNamespace)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // PRIVATE METHODS
+
+// hints returns the hint that the text can be read as Markdown, when it has
+// text, which is read without moving r
+func hints(r io.Reader) []metadata.Metadata {
+	if itext.HasText(r) {
+		return metadata.HintMetadata(metadata.HintMarkdown)
+	}
+	return nil
+}
 
 // markdown returns the part of the text as Markdown in the range, which is
 // read as it's converted, until the part is converted, so a text of any size

@@ -14,7 +14,7 @@ import (
 func Test_markdown_000(t *testing.T) {
 	// An image has a note, rather than Markdown, when the markdown namespace
 	// is requested, and none otherwise
-	for _, contentType := range []string{"image/png", "image/svg+xml"} {
+	for _, contentType := range []string{"image/png", "image/jpeg"} {
 		meta, err := getMetadata(context.Background(), bytes.NewReader(nil), contentType, metadata.WithNamespace(metadata.MarkdownNamespace))
 		if err != nil {
 			t.Fatal(err)
@@ -29,6 +29,19 @@ func Test_markdown_000(t *testing.T) {
 			if m.NS() == metadata.MarkdownNamespace {
 				t.Errorf("%s: expected no markdown, got %s", contentType, key(m))
 			}
+		}
+	}
+}
+
+func Test_markdown_001(t *testing.T) {
+	// An SVG image has no note, as its source is its Markdown
+	meta, err := getMetadata(context.Background(), bytes.NewReader(nil), "image/svg+xml", metadata.WithNamespace(metadata.MarkdownNamespace))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range meta {
+		if key(m) == "markdown:note" {
+			t.Errorf("expected no note, got %q", m.Value())
 		}
 	}
 }

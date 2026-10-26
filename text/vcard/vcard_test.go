@@ -43,7 +43,7 @@ func entries(t *testing.T, card, name string, opts ...metadata.Option) map[strin
 	}
 	result := make(map[string]any, len(meta))
 	for _, m := range meta {
-		if key := m.NS() + ":" + m.Key(); key != "metadata:kind" && key != "dc:type" {
+		if key := m.NS() + ":" + m.Key(); key != "metadata:kind" && key != "dc:type" && key != "metadata:hint" {
 			result[key] = m.Any()
 		}
 	}

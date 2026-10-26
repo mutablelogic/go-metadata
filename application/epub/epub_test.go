@@ -6,6 +6,8 @@ import (
 	"image"
 	"image/png"
 	"io"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -262,4 +264,29 @@ func TestEpubMarkdown(t *testing.T) {
 	meta, err = epubEntries(t, "/b.epub", book)
 	require.NoError(t, err)
 	assert.NotContains(t, meta, "markdown:body")
+}
+
+func TestEpubHints(t *testing.T) {
+	hint := func(meta map[string]metadata.Metadata) string {
+		if m, exists := meta["metadata:hint"]; exists {
+			return m.Value()
+		}
+		return ""
+	}
+
+	// A book with a cover in its archive has artwork, and without a spine,
+	// no text, and without the cover's image, no artwork
+	meta, err := epubEntries(t, "/books/Bad Blood.epub", document(t, map[string]string{"META-INF/container.xml": epubContainerXML, "OEBPS/content.opf": epub2OPF, "OEBPS/Image00003.png": string(coverPNG(t))}))
+	require.NoError(t, err)
+	assert.Equal(t, "artwork", hint(meta))
+	meta, err = epubEntries(t, "/books/Bad Blood.epub", document(t, map[string]string{"META-INF/container.xml": epubContainerXML, "OEBPS/content.opf": epub2OPF}))
+	require.NoError(t, err)
+	assert.Equal(t, "", hint(meta))
+
+	// A book with a spine has text
+	data, err := os.ReadFile(filepath.Join("..", "..", "testfiles", "sample.epub"))
+	require.NoError(t, err)
+	meta, err = epubEntries(t, "sample.epub", data)
+	require.NoError(t, err)
+	assert.Contains(t, hint(meta), "markdown")
 }

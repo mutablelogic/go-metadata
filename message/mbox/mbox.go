@@ -98,6 +98,7 @@ func init() {
 		}
 
 		s := summary{subjects: make(map[string]*count), byAddress: make(map[string]int), byName: make(map[string]int)}
+		hints := make(map[string]bool)
 		reader := mbox.NewReader(r)
 		for {
 			if err := ctx.Err(); err != nil {
@@ -119,6 +120,9 @@ func init() {
 				m.Date = msg.Date
 			}
 			s.add(m)
+			for _, hint := range email.Hints(m) {
+				hints[hint] = true
+			}
 
 			// The message as Markdown, until the writer has its part
 			if w != nil && werr == nil {
@@ -133,7 +137,10 @@ func init() {
 			}
 		}
 
+		// The hints of its messages: that it can be read as Markdown, when it
+		// has messages, and has events, when a message has a calendar
 		result := append(s.metadata(), kind...)
+		result = append(result, metadata.HintMetadata(slices.Sorted(maps.Keys(hints))...)...)
 		if w == nil {
 			return result, nil
 		}

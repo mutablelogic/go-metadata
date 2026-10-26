@@ -112,8 +112,32 @@ func init() {
 		if len(c.Events) == 1 && c.Events[0].Kind == ical.KindEvent {
 			kind = dc.KindEvent
 		}
-		return append(calendarMetadata(c), metadata.KindMetadata(kind)...), nil
+		result := append(calendarMetadata(c), metadata.KindMetadata(kind)...)
+		return append(result, metadata.HintMetadata(calendarHints(c)...)...), nil
 	}, Namespace, dc.Namespace, metadata.MetadataNamespace)
+}
+
+// calendarHints returns the hints of a calendar: when it has events, that
+// it can be read as Markdown, and has events, that it has places, when an
+// event has a position or a location, and that it has artwork, when it, or
+// an event, has an image which is embedded in it
+func calendarHints(c *ical.Calendar) []string {
+	var hints []string
+	if len(c.Events) > 0 {
+		hints = append(hints, metadata.HintMarkdown, metadata.HintEvent)
+	}
+	geo, art := false, c.Image != nil && len(c.Image.Data) > 0
+	for _, e := range c.Events {
+		geo = geo || e.Geo != nil || strings.TrimSpace(e.Location) != ""
+		art = art || (e.Image != nil && len(e.Image.Data) > 0)
+	}
+	if geo {
+		hints = append(hints, metadata.HintGeo)
+	}
+	if art {
+		hints = append(hints, metadata.HintArtwork)
+	}
+	return hints
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -128,8 +128,9 @@ func init() {
 // archive:files and archive:directories, the size of its files when
 // they're extracted, as archive:size, when it was last modified, which is
 // when its newest entry was, as archive:modified and dc:date, and its
-// comment, when it has one, as archive:comment. An archive which is cut
-// short, or corrupt, has the metadata of the entries before it, and an
+// comment, when it has one, as archive:comment, and the markdown hint, when
+// it has entries, as its table of contents is Markdown. An archive which is
+// cut short, or corrupt, has the metadata of the entries before it, and an
 // error.
 func archiveMetadata(ctx context.Context, r io.Reader, contentType string) ([]metadata.Metadata, error) {
 	var files, dirs, size int64
@@ -167,7 +168,13 @@ func archiveMetadata(ctx context.Context, r io.Reader, contentType string) ([]me
 	if comment := strings.TrimSpace(info.comment); comment != "" {
 		add(Namespace, "comment", comment)
 	}
-	return slices.Collect(maps.Values(entries)), err
+
+	// An archive with entries has a table of contents, as Markdown
+	result := slices.Collect(maps.Values(entries))
+	if files+dirs > 0 {
+		result = append(result, metadata.HintMetadata(metadata.HintMarkdown)...)
+	}
+	return result, err
 }
 
 // walk calls the function for each entry of the archive, in the order

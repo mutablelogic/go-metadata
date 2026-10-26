@@ -116,9 +116,9 @@ func init() {
 // set, its thumbnail, which is a picture of its first page or slide, as
 // artwork:thumbnail, when artwork is requested, and it has one, and its
 // content as Markdown, when it's requested, a part at a time (see
-// metadata.WithRange). A title which is the name of the file the document
-// was made from isn't returned, so the title is from the document's own
-// name.
+// metadata.WithRange), and its hints (see documentHints). A title which is
+// the name of the file the document was made from isn't returned, so the
+// title is from the document's own name.
 func officeMetadata(r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
 	// A document is a zip archive, which is read in place, or from memory,
 	// unless it's too large, when it has only the title from its name
@@ -160,10 +160,11 @@ func officeMetadata(r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) 
 	}
 
 	// The content as Markdown, when it's requested
-	if err := addMarkdown(entries, archive, o, officeConverter(archive)); err != nil {
+	convert := officeConverter(archive)
+	if err := addMarkdown(entries, archive, o, convert); err != nil {
 		return nil, err
 	}
-	return slices.Collect(maps.Values(entries)), nil
+	return append(slices.Collect(maps.Values(entries)), documentHints(archive, convert != nil, officeThumbnailPath(archive))...), nil
 }
 
 // officeConverter returns the function which converts the document to
@@ -193,6 +194,20 @@ func officeThumbnailPath(archive *zip.Reader) string {
 		}
 	}
 	return thumbnailPath
+}
+
+// documentHints returns the hints of a document in the archive: markdown,
+// when it has content which is converted to Markdown, and artwork, when it
+// has a thumbnail at the path
+func documentHints(archive *zip.Reader, content bool, thumbnail string) []metadata.Metadata {
+	var hints []string
+	if content {
+		hints = append(hints, metadata.HintMarkdown)
+	}
+	if _, err := fs.Stat(archive, thumbnail); err == nil {
+		hints = append(hints, metadata.HintArtwork)
+	}
+	return metadata.HintMetadata(hints...)
 }
 
 // addEntry adds the metadata to the entries, by its key, when its value
