@@ -84,11 +84,16 @@ func Test_mbox_002(t *testing.T) {
 func Test_mbox_writer_000(t *testing.T) {
 	// Messages which are written are read as they were written, with their
 	// senders and dates, in UTC, to the second, and lines which start with
-	// From, or which are escaped already, as they were
+	// From, or which are escaped already, as they were, including an empty
+	// message, between messages, and at the end, and a message which is a
+	// blank line
 	sent := []*mbox.Message{
 		{Sender: "ada@example.com", Date: time.Date(2026, 10, 26, 9, 15, 30, 0, time.UTC), Data: []byte("Subject: One\n\nFrom the start\n>From here\n>>From there\n")},
 		{Sender: "", Date: time.Date(2026, 10, 26, 10, 0, 0, 0, time.FixedZone("CET", 3600)), Data: []byte("Subject: Two\n\nEnds with a blank line\n\n")},
 		{Sender: "charles@example.com", Date: time.Date(2002, 2, 13, 8, 30, 0, 0, time.UTC), Data: []byte("Subject: Three\n\nBye\n")},
+		{Sender: "empty@example.com", Date: time.Date(2002, 2, 14, 8, 30, 0, 0, time.UTC), Data: []byte("")},
+		{Sender: "blank@example.com", Date: time.Date(2002, 2, 15, 8, 30, 0, 0, time.UTC), Data: []byte("\n")},
+		{Sender: "last@example.com", Date: time.Date(2002, 2, 16, 8, 30, 0, 0, time.UTC), Data: []byte("")},
 	}
 	var b strings.Builder
 	w := mbox.NewWriter(&b)

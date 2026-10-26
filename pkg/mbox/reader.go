@@ -175,9 +175,10 @@ func parseDate(value string) (time.Time, bool) {
 }
 
 // trimSeparator returns a message's data without the blank line after it,
-// which separates it from the next message, as a writer writes it
+// which separates it from the next message, as a writer writes it, which is
+// all the data of an empty message
 func trimSeparator(data []byte) []byte {
-	if bytes.HasSuffix(data, []byte("\n\n")) {
+	if bytes.HasSuffix(data, []byte("\n\n")) || bytes.Equal(data, []byte("\n")) {
 		return data[:len(data)-1]
 	}
 	return data
