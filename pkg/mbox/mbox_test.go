@@ -80,3 +80,55 @@ func Test_mbox_002(t *testing.T) {
 		t.Errorf("got %d messages, of %d bytes", len(got), len(got[0].Data))
 	}
 }
+
+func Test_mbox_writer_000(t *testing.T) {
+	// Messages which are written are read as they were written, with their
+	// senders and dates, in UTC, to the second, and lines which start with
+	// From, or which are escaped already, as they were, including an empty
+	// message, between messages, and at the end, and a message which is a
+	// blank line
+	sent := []*mbox.Message{
+		{Sender: "ada@example.com", Date: time.Date(2026, 10, 26, 9, 15, 30, 0, time.UTC), Data: []byte("Subject: One\n\nFrom the start\n>From here\n>>From there\n")},
+		{Sender: "", Date: time.Date(2026, 10, 26, 10, 0, 0, 0, time.FixedZone("CET", 3600)), Data: []byte("Subject: Two\n\nEnds with a blank line\n\n")},
+		{Sender: "charles@example.com", Date: time.Date(2002, 2, 13, 8, 30, 0, 0, time.UTC), Data: []byte("Subject: Three\n\nBye\n")},
+		{Sender: "empty@example.com", Date: time.Date(2002, 2, 14, 8, 30, 0, 0, time.UTC), Data: []byte("")},
+		{Sender: "blank@example.com", Date: time.Date(2002, 2, 15, 8, 30, 0, 0, time.UTC), Data: []byte("\n")},
+		{Sender: "last@example.com", Date: time.Date(2002, 2, 16, 8, 30, 0, 0, time.UTC), Data: []byte("")},
+	}
+	var b strings.Builder
+	w := mbox.NewWriter(&b)
+	for _, m := range sent {
+		if err := w.Write(m); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := messages(t, b.String())
+	if len(got) != len(sent) {
+		t.Fatalf("got %d messages, want %d:\n%s", len(got), len(sent), b.String())
+	}
+	for i, m := range sent {
+		if got[i].Sender != m.Sender || !got[i].Date.Equal(m.Date) || string(got[i].Data) != string(m.Data) {
+			t.Errorf("%d: got %q, %v, %q", i, got[i].Sender, got[i].Date, got[i].Data)
+		}
+	}
+}
+
+func Test_mbox_writer_001(t *testing.T) {
+	// A From line has the sender, as one word, or ???@??? without one, and
+	// the date in UTC, and the message's lines end with line feeds, whatever
+	// they ended with, and with one at its end, and a blank line after it
+	var b strings.Builder
+	w := mbox.NewWriter(&b)
+	date := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	if err := w.Write(&mbox.Message{Sender: "Ada Lovelace", Date: date, Data: []byte("Subject: Hi\r\n\r\nFrom me\rBye")}); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Write(&mbox.Message{Date: date}); err != nil {
+		t.Fatal(err)
+	}
+	want := "From Ada_Lovelace Fri Jan  2 03:04:05 2026\nSubject: Hi\n\n>From me\nBye\n\n" +
+		"From ???@??? Fri Jan  2 03:04:05 2026\n\n"
+	if b.String() != want {
+		t.Errorf("got %q, want %q", b.String(), want)
+	}
+}
