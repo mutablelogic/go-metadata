@@ -95,7 +95,8 @@ func NewReader(r io.Reader) *Reader {
 // PUBLIC METHODS
 
 // Next returns the next message of the mailbox, or io.EOF when there are no
-// more. Text before the first From line isn't a message.
+// more. Text before the first From line isn't a message, and the blank line
+// after a message, which separates it from the next, isn't part of it.
 func (r *Reader) Next() (*Message, error) {
 	if r.err != nil {
 		return nil, r.err
@@ -107,7 +108,7 @@ func (r *Reader) Next() (*Message, error) {
 			current := r.next
 			r.next = m
 			if current != nil {
-				current.Data = data.Bytes()
+				current.Data = trimSeparator(data.Bytes())
 				return current, nil
 			}
 			continue
@@ -128,7 +129,7 @@ func (r *Reader) Next() (*Message, error) {
 	}
 	if current := r.next; current != nil {
 		r.next = nil
-		current.Data = data.Bytes()
+		current.Data = trimSeparator(data.Bytes())
 		return current, nil
 	}
 	return nil, r.err
@@ -171,6 +172,15 @@ func parseDate(value string) (time.Time, bool) {
 		}
 	}
 	return time.Time{}, false
+}
+
+// trimSeparator returns a message's data without the blank line after it,
+// which separates it from the next message, as a writer writes it
+func trimSeparator(data []byte) []byte {
+	if bytes.HasSuffix(data, []byte("\n\n")) {
+		return data[:len(data)-1]
+	}
+	return data
 }
 
 // scanLines splits data into lines, which end with a carriage return, a
