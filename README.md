@@ -218,7 +218,8 @@ has one, as an `*os.File` does, and runs every handler of that type concurrently
 metadata has a namespace and a key, such as `dc` and `title`, and a value, which is text, a
 typed value, such as a time or a number, or an image. When a handler fails, `Extract` returns
 the metadata which was extracted along with the error, and `ErrNotImplemented` when there's no
-handler for the content type.
+handler for the content type, with a title from the file's name, a `metadata:kind` of
+`unknown`, and an empty `metadata:hint`, as there's nothing more to read of it.
 
 The `metadata` namespace describes the file itself: `metadata:kind` is what it is, such as a
 book or a conversation, and `metadata:hint` is a list of hints of what to read of it next, as

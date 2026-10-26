@@ -47,6 +47,7 @@ const (
 	KindSubtitles    = "subtitles"    // Subtitles of a video, such as a SubRip file
 	KindVideo        = "video"        // A video
 	KindWebPage      = "webpage"      // A web page
+	KindUnknown      = "unknown"      // A file which nothing can read, which has no DCMI type
 )
 
 // kindTypes are the DCMI types of the kinds
