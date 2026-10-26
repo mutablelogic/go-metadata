@@ -18,7 +18,9 @@ import (
 	// Packages
 	metadata "github.com/mutablelogic/go-metadata"
 	dc "github.com/mutablelogic/go-metadata/dublincore"
+	imarkdown "github.com/mutablelogic/go-metadata/internal/markdown"
 	meta "github.com/mutablelogic/go-metadata/internal/meta"
+	itext "github.com/mutablelogic/go-metadata/internal/text"
 	htmlindex "golang.org/x/text/encoding/htmlindex"
 )
 
@@ -56,6 +58,16 @@ func init() {
 		}
 		return slices.Collect(maps.Values(entries)), nil
 	}, Namespace, dc.Namespace)
+
+	// The image's source, as an XML code block, as it's read, only when the
+	// markdown namespace is requested
+	metadata.AddHandler(regexp.MustCompile(`^image/svg\+xml$`), "svg-markdown", func(_ context.Context, r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
+		if !o.HasNamespace(metadata.MarkdownNamespace) {
+			return nil, nil
+		}
+		w := imarkdown.NewWriter(o)
+		return w.Metadata(itext.WriteCodeBlock(w, "xml", r))
+	}, metadata.MarkdownNamespace)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

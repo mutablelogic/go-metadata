@@ -131,6 +131,9 @@ var sourceTypes = map[string]sourceType{
 	".graphql": {"application/graphql", "graphql"},
 	".gql":     {"application/graphql", "graphql"},
 	".ipynb":   {"application/x-ipynb+json", "json"},
+	".geojson": {"application/geo+json", "json"},
+	".ndjson":  {"application/x-ndjson", "json"},
+	".jsonl":   {"application/x-ndjson", "json"},
 
 	// Building and changes
 	".mk":    {"text/x-makefile", "makefile"},
@@ -169,6 +172,8 @@ var textSourceTypes = map[string]sourceType{
 // code, such as data and documents in plain text
 var sourceKinds = map[string]string{
 	"application/json":         dc.KindData,
+	"application/geo+json":     dc.KindData,
+	"application/x-ndjson":     dc.KindData,
 	"application/yaml":         dc.KindData,
 	"application/toml":         dc.KindData,
 	"application/x-ipynb+json": dc.KindData,
@@ -178,6 +183,25 @@ var sourceKinds = map[string]string{
 	"text/x-tex":               dc.KindDocument,
 	"text/x-bibtex":            dc.KindData,
 }
+
+// aliasTypes are the other names of types of source code, by the type
+// they're another name of
+var aliasTypes = map[string]string{
+	"application/javascript":   "text/javascript",
+	"application/x-javascript": "text/javascript",
+	"application/x-yaml":       "application/yaml",
+	"text/yaml":                "application/yaml",
+	"text/x-yaml":              "application/yaml",
+	"application/x-sh":         "application/x-shellscript",
+	"text/x-sh":                "application/x-shellscript",
+	"text/x-shellscript":       "application/x-shellscript",
+	"application/jsonl":        "application/x-ndjson",
+	"application/x-jsonlines":  "application/x-ndjson",
+}
+
+// reJSON matches the types of data which is JSON, such as
+// application/ld+json, by their suffix
+var reJSON = regexp.MustCompile(`^application/[a-z0-9.+-]+\+json$`)
 
 // languages are the names of the languages of the content types of source
 // code, in the info string of a Markdown code block
@@ -200,11 +224,15 @@ func init() {
 		}
 		languages[source.contentType] = source.language
 	}
-	contentTypes := make([]string, 0, len(languages))
+	for alias, contentType := range aliasTypes {
+		languages[alias] = languages[contentType]
+	}
+	contentTypes := make([]string, 0, len(languages)+1)
 	for contentType := range languages {
 		contentTypes = append(contentTypes, regexp.QuoteMeta(contentType))
 	}
 	slices.Sort(contentTypes)
+	contentTypes = append(contentTypes, reJSON.String()[1:len(reJSON.String())-1])
 
 	// The kind of the source code, and its content, as a code block in its
 	// language, only when the markdown namespace is requested
@@ -213,13 +241,8 @@ func init() {
 		if !o.HasNamespace(metadata.MarkdownNamespace) {
 			return kind, nil
 		}
-		text, err := itext.Read(r)
-		if err != nil {
-			return kind, err
-		}
 		w := imarkdown.NewWriter(o)
-		_, err = w.WriteString(imarkdown.CodeBlock(languages[o.ContentType()], text))
-		meta, err := w.Metadata(err)
+		meta, err := w.Metadata(itext.WriteCodeBlock(w, language(o.ContentType()), r))
 		return append(meta, kind...), err
 	}, metadata.MarkdownNamespace, metadata.MetadataNamespace, dc.Namespace)
 }
@@ -227,11 +250,28 @@ func init() {
 ////////////////////////////////////////////////////////////////////////////////
 // PRIVATE METHODS
 
-// sourceKind returns the kind of source code of the content type, which is
-// code, unless it's data or a document
+// sourceKind returns the kind of source code of the content type, or the
+// type it's another name of, which is code, unless it's data, such as JSON,
+// or a document
 func sourceKind(contentType string) string {
+	if alias, exists := aliasTypes[contentType]; exists {
+		contentType = alias
+	}
 	if kind, exists := sourceKinds[contentType]; exists {
 		return kind
+	} else if reJSON.MatchString(contentType) {
+		return dc.KindData
 	}
 	return dc.KindCode
+}
+
+// language returns the name of the language of the content type, in the
+// info string of a code block, which is json for data which is JSON
+func language(contentType string) string {
+	if language, exists := languages[contentType]; exists {
+		return language
+	} else if reJSON.MatchString(contentType) {
+		return "json"
+	}
+	return ""
 }

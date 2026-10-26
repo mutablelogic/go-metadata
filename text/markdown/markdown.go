@@ -3,6 +3,7 @@
 package markdown
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -69,6 +70,10 @@ var reservedKeys = map[string]bool{
 
 const reservedPrefix = "frontmatter-"
 
+// maxFrontMatter is the most of a document which is read for the end of its
+// front matter, when it's read a part at a time
+const maxFrontMatter = 1 << 20
+
 // errFound stops walking the document when the title is found
 var errFound = errors.New("found")
 
@@ -101,15 +106,42 @@ func init() {
 		if !o.HasNamespace(metadata.MarkdownNamespace) {
 			return nil, nil
 		}
-		text, err := itext.Read(r)
-		if err != nil {
-			return nil, err
-		}
-		_, body, _ := frontMatter(text)
 		w := imarkdown.NewWriter(o)
-		_, err = w.WriteString(body)
-		return w.Metadata(err)
+		return w.Metadata(writeBody(w, itext.NewReader(r)))
 	}, metadata.MarkdownNamespace)
+}
+
+// writeBody writes the document without its front matter, as frontMatter
+// returns its body, as it's read, with its carriage returns before line
+// feeds left out, so a document of any size is read a part at a time. Front
+// matter which doesn't end within maxFrontMatter isn't front matter.
+func writeBody(w io.StringWriter, r io.Reader) error {
+	b := bufio.NewReader(r)
+
+	// The front matter starts with a line of ---, and ends with a line of
+	// --- or ..., after which is the body
+	var head strings.Builder
+	if line, err := b.ReadString('\n'); err != nil && err != io.EOF {
+		return err
+	} else if head.WriteString(line); line == "---\n" || line == "---\r\n" {
+		for head.Len() < maxFrontMatter {
+			line, err := b.ReadString('\n')
+			head.WriteString(line)
+			if end := strings.TrimSuffix(strings.TrimSuffix(line, "\n"), "\r"); end == "---" || end == "..." {
+				return itext.WriteLF(w, b)
+			} else if err == io.EOF {
+				break
+			} else if err != nil {
+				return err
+			}
+		}
+	}
+
+	// Without front matter, or the end of it, the whole document is its body
+	if err := itext.WriteLF(w, strings.NewReader(head.String())); err != nil {
+		return err
+	}
+	return itext.WriteLF(w, b)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

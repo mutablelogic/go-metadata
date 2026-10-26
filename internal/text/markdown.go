@@ -36,24 +36,7 @@ var (
 // are kept, a blank line separates its paragraphs, and its indentation is
 // kept without the line being code. It stops when a write returns an error.
 func WriteMarkdown(w io.StringWriter, text string) error {
-	lines := strings.Split(strings.ReplaceAll(strings.ReplaceAll(text, "\r\n", "\n"), "\r", "\n"), "\n")
-	for i, line := range lines {
-		line = strings.TrimRight(line, " \t")
-		var end string
-		switch {
-		case i == len(lines)-1:
-			end = ""
-		case line == "" || strings.TrimSpace(lines[i+1]) == "":
-			end = "\n"
-		default:
-			// A hard line break, so the line isn't joined to the next
-			end = "  \n"
-		}
-		if _, err := w.WriteString(markdownLine(line) + end); err != nil {
-			return err
-		}
-	}
-	return nil
+	return WriteMarkdownFrom(w, strings.NewReader(text))
 }
 
 // markdownLine returns a line of text as Markdown, with its characters which

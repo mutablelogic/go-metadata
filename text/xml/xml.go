@@ -44,6 +44,10 @@ const (
 	// maxTokens is how many of a document's tokens are read for its root
 	// element, DOCTYPE and title, so a large document isn't read to its end
 	maxTokens = 1000
+
+	// maxParseSize is the most of the start of a document which is read for
+	// its root element, DOCTYPE and title
+	maxParseSize = 1 << 20
 )
 
 var (
@@ -72,7 +76,34 @@ func init() {
 			return nil, nil
 		}
 		kind := metadata.KindMetadata(dc.KindData)
-		text, err := itext.Read(r)
+		seeker, ok := r.(io.Seeker)
+		if !ok {
+			// The document is read in memory, up to itext.MaxBytes
+			text, err := itext.Read(r)
+			if err != nil {
+				return kind, err
+			}
+			result := append(parse(text).metadata(), kind...)
+			if !o.HasNamespace(metadata.MarkdownNamespace) {
+				return result, nil
+			}
+			w := imarkdown.NewWriter(o)
+			_, err = w.WriteString(imarkdown.CodeBlock("xml", text))
+			markdown, err := w.Metadata(err)
+			return append(result, markdown...), err
+		}
+		start, err := seeker.Seek(0, io.SeekCurrent)
+		if err != nil {
+			return kind, err
+		}
+
+		// The root element, DOCTYPE and title, which are at the start of the
+		// document
+		data, err := io.ReadAll(io.LimitReader(r, maxParseSize))
+		if err != nil {
+			return kind, err
+		}
+		text, err := itext.Decode(data, len(data) == maxParseSize)
 		if err != nil {
 			return kind, err
 		}
@@ -80,9 +111,13 @@ func init() {
 		if !o.HasNamespace(metadata.MarkdownNamespace) {
 			return result, nil
 		}
+
+		// The document, as it's read, from its start
+		if _, err := seeker.Seek(start, io.SeekStart); err != nil {
+			return result, err
+		}
 		w := imarkdown.NewWriter(o)
-		_, err = w.WriteString(imarkdown.CodeBlock("xml", text))
-		markdown, err := w.Metadata(err)
+		markdown, err := w.Metadata(itext.WriteCodeBlock(w, "xml", r))
 		return append(result, markdown...), err
 	}, Namespace, dc.Namespace, metadata.MetadataNamespace, metadata.MarkdownNamespace)
 }
