@@ -57,8 +57,16 @@ func init() {
 			return nil, nil
 		}
 		defer img.Close()
-		return rawMetadata(img, data, o.ContentType()), nil
-	}, imageNamespace, exif.TIFFNamespace, exif.EXIFNamespace, dc.Namespace, xmp.Namespace)
+
+		// Its metadata, and hints of its artwork, when it has a preview, and
+		// its place, when it has a GPS position
+		result := rawMetadata(img, data, o.ContentType())
+		hints := imageexif.PositionHints(result)
+		if preview, err := img.ThumbnailBytes(); err == nil && len(preview) > 0 {
+			hints = append(hints, metadata.HintArtwork)
+		}
+		return append(result, metadata.HintMetadata(hints...)...), nil
+	}, imageNamespace, exif.TIFFNamespace, exif.EXIFNamespace, dc.Namespace, xmp.Namespace, metadata.MetadataNamespace)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

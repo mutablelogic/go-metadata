@@ -97,11 +97,14 @@ func init() {
 		// Collect the language, the title element, the canonical link, and the
 		// meta elements, outside of scripts and styles
 		var title, lang, canonical string
+		var hasText bool
 		fields := make(map[string]string)
 		walkHTML(doc, func(node *html.Node) {
 			switch strings.ToLower(node.Data) {
 			case "html":
 				lang = attr(node, "lang")
+			case "body":
+				hasText = hasText || textContent(node) != ""
 			case "title":
 				if title == "" {
 					title = cleanTitle(textContent(node))
@@ -162,6 +165,10 @@ func init() {
 			if entry := meta.New(Namespace, key, fields[field]); entry != nil {
 				entries[entryKey(Namespace, key)] = entry
 			}
+		}
+		// The hint that a page with text in its body can be read as Markdown
+		if hasText {
+			kind = append(kind, metadata.HintMetadata(metadata.HintMarkdown)...)
 		}
 		return append(slices.Collect(maps.Values(entries)), kind...), nil
 	}, dc.Namespace, Namespace, metadata.MetadataNamespace)

@@ -65,9 +65,9 @@ func init() {
 		}
 	}
 
-	// The kind of a PostScript document, what its comments say about it, and
-	// the preview of an EPS file, as artwork, only when the artwork
-	// namespace is requested
+	// The kind of a PostScript document, what its comments say about it, the
+	// artwork hint, when it has a preview, and the preview of an EPS file, as
+	// artwork, only when the artwork namespace is requested
 	metadata.AddHandler(reContentType, Namespace, func(_ context.Context, r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
 		ra, size, err := readerAt(r)
 		if err != nil {
@@ -78,6 +78,11 @@ func init() {
 			return nil, metadata.ErrBadParameter.With(err)
 		}
 		result := append(documentMetadata(doc), metadata.KindMetadata(kind(doc))...)
+		if doc.Preview != nil {
+			// A document with a preview has artwork, but its content can't
+			// be read as Markdown
+			result = append(result, metadata.HintMetadata(metadata.HintArtwork)...)
+		}
 		if o.HasNamespace(metadata.ArtworkNamespace) && doc.Preview != nil {
 			if preview := previewArtwork(doc.Preview, o); preview != nil {
 				result = append(result, preview)

@@ -44,7 +44,7 @@ func (m *match) metadata() []metadata.Metadata {
 // from TMDB, only when the artwork namespace is requested, and its
 // Markdown, only when the markdown namespace is requested
 func (m *match) result(ctx context.Context, client *tmdb.Client, o *metadata.Opts) ([]metadata.Metadata, error) {
-	result := m.metadata()
+	result := append(m.metadata(), metadata.HintMetadata(m.hints()...)...)
 	if o.HasNamespace(metadata.ArtworkNamespace) {
 		images, err := m.artwork(ctx, client, o)
 		if err != nil {

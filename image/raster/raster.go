@@ -47,9 +47,13 @@ var (
 // LIFECYCLE
 
 func init() {
-	// The kind, format and size of an image
+	// The kind, format and size of an image, and a hint of its artwork, when
+	// its header is decoded, as a thumbnail can then be made of it
 	metadata.AddHandler(reContentType, Namespace, func(_ context.Context, r io.Reader, _ *metadata.Opts) ([]metadata.Metadata, error) {
 		meta, err := imageMetadata(r)
+		if len(meta) > 0 {
+			meta = append(meta, metadata.HintMetadata(metadata.HintArtwork)...)
+		}
 		return append(meta, metadata.KindMetadata(dc.KindImage)...), err
 	}, Namespace, metadata.MetadataNamespace, dc.Namespace)
 }

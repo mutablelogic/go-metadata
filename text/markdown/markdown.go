@@ -3,6 +3,8 @@
 package markdown
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -69,6 +71,14 @@ var reservedKeys = map[string]bool{
 
 const reservedPrefix = "frontmatter-"
 
+// maxFrontMatter is the most of a document which is read for the end of its
+// front matter, when it's read a part at a time, and frontMatterBuffer how
+// much of a line is read at a time
+const (
+	maxFrontMatter    = 1 << 20
+	frontMatterBuffer = 16 << 10
+)
+
 // errFound stops walking the document when the title is found
 var errFound = errors.New("found")
 
@@ -86,6 +96,9 @@ func init() {
 	// The title, and the metadata in the front matter
 	metadata.AddHandler(reContentType, "markdown", func(_ context.Context, r io.Reader, _ *metadata.Opts) ([]metadata.Metadata, error) {
 		kind := metadata.KindMetadata(dc.KindDocument)
+		if itext.HasText(r) {
+			kind = append(kind, metadata.HintMetadata(metadata.HintMarkdown)...)
+		}
 		text, err := itext.Read(r)
 		if err != nil {
 			return kind, err
@@ -101,15 +114,51 @@ func init() {
 		if !o.HasNamespace(metadata.MarkdownNamespace) {
 			return nil, nil
 		}
-		text, err := itext.Read(r)
-		if err != nil {
-			return nil, err
-		}
-		_, body, _ := frontMatter(text)
 		w := imarkdown.NewWriter(o)
-		_, err = w.WriteString(body)
-		return w.Metadata(err)
+		return w.Metadata(writeBody(w, itext.NewReader(r)))
 	}, metadata.MarkdownNamespace)
+}
+
+// writeBody writes the document without its front matter, as frontMatter
+// returns its body, as it's read, with its carriage returns before line
+// feeds left out, so a document of any size is read a part at a time. The
+// front matter is read a part of a line at a time, up to maxFrontMatter,
+// beyond which it isn't front matter, so a line, or a document without line
+// breaks, isn't read in memory.
+func writeBody(w io.StringWriter, r io.Reader) error {
+	b := bufio.NewReaderSize(r, frontMatterBuffer)
+	if start, err := b.Peek(len("---\r\n")); err != nil && !errors.Is(err, io.EOF) {
+		return err
+	} else if !bytes.HasPrefix(start, []byte("---\n")) && !bytes.HasPrefix(start, []byte("---\r\n")) {
+		return itext.WriteLF(w, b)
+	}
+
+	// The front matter, a part of a line at a time, which ends with a line
+	// of --- or ..., after the line which starts it
+	var head bytes.Buffer
+	first, whole := true, true
+	for head.Len() < maxFrontMatter {
+		part, err := b.ReadSlice('\n')
+		head.Write(part)
+		if line, ended := bytes.CutSuffix(part, []byte("\n")); whole && !first && (ended || errors.Is(err, io.EOF)) {
+			if end := bytes.TrimSuffix(line, []byte("\r")); string(end) == "---" || string(end) == "..." {
+				return itext.WriteLF(w, b)
+			}
+		}
+		if errors.Is(err, io.EOF) {
+			break
+		} else if err != nil && !errors.Is(err, bufio.ErrBufferFull) {
+			return err
+		}
+		// A part which ends a line is followed by the start of another
+		first, whole = false, !errors.Is(err, bufio.ErrBufferFull)
+	}
+
+	// Without the end of the front matter, the whole document is its body
+	if err := itext.WriteLF(w, bytes.NewReader(head.Bytes())); err != nil {
+		return err
+	}
+	return itext.WriteLF(w, b)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -51,8 +51,33 @@ func init() {
 		if len(cards) > 1 {
 			result = append(result, meta.New(Namespace, "count", len(cards)))
 		}
+		result = append(result, metadata.HintMetadata(cardHints(cards)...)...)
 		return append(result, kind...), nil
 	}, Namespace, dc.Namespace, metadata.MetadataNamespace)
+}
+
+// cardHints returns the hints of contacts: that they can be read as
+// Markdown, that they have events, when a contact has a birthday, places,
+// when one has an address, and artwork, when one has a photo which is
+// embedded in it
+func cardHints(cards []*vcf.Card) []string {
+	hints := []string{metadata.HintMarkdown}
+	event, geo, art := false, false, false
+	for _, card := range cards {
+		event = event || card.Birthday != nil
+		geo = geo || len(card.Addresses) > 0
+		art = art || (card.Photo != nil && len(card.Photo.Data) > 0)
+	}
+	if event {
+		hints = append(hints, metadata.HintEvent)
+	}
+	if geo {
+		hints = append(hints, metadata.HintGeo)
+	}
+	if art {
+		hints = append(hints, metadata.HintArtwork)
+	}
+	return hints
 }
 
 ////////////////////////////////////////////////////////////////////////////////

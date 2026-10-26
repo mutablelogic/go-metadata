@@ -80,8 +80,9 @@ func TestOfficeMetadata(t *testing.T) {
 		// The properties which are set, and the type and kind
 		meta, err := entries(t, document(t, map[string]string{"docProps/core.xml": coreXML, "word/document.xml": "<w:document/>"}))
 		require.NoError(t, err)
-		require.Len(t, meta, 6)
+		require.Len(t, meta, 7)
 		assert.Equal(t, "Text", meta["dc:type"].Value())
+		assert.Equal(t, "markdown", meta["metadata:hint"].Value())
 		assert.Equal(t, "document", meta["metadata:kind"].Value())
 		assert.Equal(t, "Scoping Questionnaire", meta["dc:title"].Value())
 		assert.Equal(t, "Web application testing", meta["dc:subject"].Value())
@@ -94,7 +95,7 @@ func TestOfficeMetadata(t *testing.T) {
 		// A document without properties or a name has only its type and kind
 		meta, err := entries(t, document(t, map[string]string{"word/document.xml": "<w:document/>"}))
 		require.NoError(t, err)
-		require.Len(t, meta, 2)
+		require.Len(t, meta, 3)
 		assert.Equal(t, "document", meta["metadata:kind"].Value())
 	})
 

@@ -18,7 +18,9 @@ import (
 	// Packages
 	metadata "github.com/mutablelogic/go-metadata"
 	dc "github.com/mutablelogic/go-metadata/dublincore"
+	imarkdown "github.com/mutablelogic/go-metadata/internal/markdown"
 	meta "github.com/mutablelogic/go-metadata/internal/meta"
+	itext "github.com/mutablelogic/go-metadata/internal/text"
 	htmlindex "golang.org/x/text/encoding/htmlindex"
 )
 
@@ -48,14 +50,29 @@ var svgDateLayouts = []string{time.RFC3339Nano, "2006-01-02T15:04Z07:00", "2006-
 func init() {
 	// The generic image handler has no decoder for SVG, so this handler
 	// returns its size as well as its title, description and Dublin Core
-	// metadata
+	// metadata, and a hint of its Markdown, which is its source, when it's
+	// an SVG image
 	metadata.AddHandler(regexp.MustCompile(`^image/svg\+xml$`), "svg", func(_ context.Context, r io.Reader, _ *metadata.Opts) ([]metadata.Metadata, error) {
 		entries, err := svgMetadata(r)
 		if err != nil {
 			return nil, err
 		}
-		return slices.Collect(maps.Values(entries)), nil
-	}, Namespace, dc.Namespace)
+		result := slices.Collect(maps.Values(entries))
+		if len(result) > 0 {
+			result = append(result, metadata.HintMetadata(metadata.HintMarkdown)...)
+		}
+		return result, nil
+	}, Namespace, dc.Namespace, metadata.MetadataNamespace)
+
+	// The image's source, as an XML code block, as it's read, only when the
+	// markdown namespace is requested
+	metadata.AddHandler(regexp.MustCompile(`^image/svg\+xml$`), "svg-markdown", func(_ context.Context, r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
+		if !o.HasNamespace(metadata.MarkdownNamespace) {
+			return nil, nil
+		}
+		w := imarkdown.NewWriter(o)
+		return w.Metadata(itext.WriteCodeBlock(w, "xml", r))
+	}, metadata.MarkdownNamespace)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

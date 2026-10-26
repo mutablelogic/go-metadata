@@ -54,6 +54,7 @@ func Test_mbox_000(t *testing.T) {
 		message("ada@example.com", "Four", 15))
 	want := map[string]string{
 		"metadata:kind":   "mailbox",
+		"metadata:hint":   "markdown",
 		"dc:type":         "Collection",
 		"dc:title":        "Inbox",
 		"mbox:messages":   "5",

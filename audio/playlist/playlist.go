@@ -80,7 +80,8 @@ func init() {
 	}
 
 	// The kind of a playlist, its format and title, the number of its
-	// entries, and their titles, locations and duration
+	// entries, and their titles, locations and duration, and a hint of its
+	// Markdown, when it has entries
 	metadata.AddHandler(ContentTypes, "playlist", func(_ context.Context, r io.Reader, _ *metadata.Opts) ([]metadata.Metadata, error) {
 		// Read one more byte than the most which is read, to know whether
 		// the playlist is longer
@@ -99,6 +100,9 @@ func init() {
 		}
 		p := parsePlaylist(data)
 		p.truncated = truncated
+		if len(p.entries) > 0 {
+			kind = append(kind, metadata.HintMetadata(metadata.HintMarkdown)...)
+		}
 		return append(p.metadata(), kind...), nil
 	}, Namespace, dc.Namespace, metadata.MetadataNamespace)
 }

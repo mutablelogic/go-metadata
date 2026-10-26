@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"io/fs"
 	"maps"
 	"mime"
 	"net/url"
@@ -131,8 +132,9 @@ func init() {
 // subjects, description, publisher, language, date and ISBN, as dc:title,
 // dc:creator, dc:subject, dc:description, dc:publisher, dc:language, dc:date
 // and dc:identifier, when they're set, its cover as artwork:cover, when
-// artwork is requested, and its text as Markdown, when it's requested, a
-// part at a time (see metadata.WithRange). A title which isn't a title,
+// artwork is requested, its text as Markdown, when it's requested, a part
+// at a time (see metadata.WithRange), and the hints of a book with text, and
+// with a cover. A title which isn't a title,
 // such as the name of a file, isn't returned, so the title is from the
 // book's own name.
 func epubMetadata(ctx context.Context, r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
@@ -198,6 +200,18 @@ func epubMetadata(ctx context.Context, r io.Reader, o *metadata.Opts) ([]metadat
 		add(dc.Date, date)
 	}
 
+	// The hints of a book with text in its spine, and with a cover in its
+	// archive
+	var hints []string
+	if len(pkg.Spine) > 0 {
+		hints = append(hints, metadata.HintMarkdown)
+	}
+	if coverPath := pkg.coverPath(path.Dir(packagePath)); coverPath != "" {
+		if _, err := fs.Stat(archive, coverPath); err == nil {
+			hints = append(hints, metadata.HintArtwork)
+		}
+	}
+
 	// The cover, when artwork is requested
 	if o.HasNamespace(metadata.ArtworkNamespace) {
 		if cover := pkg.cover(archive, path.Dir(packagePath), o); cover != nil {
@@ -216,7 +230,7 @@ func epubMetadata(ctx context.Context, r io.Reader, o *metadata.Opts) ([]metadat
 			entries[part.NS()+string(metadata.Separator)+part.Key()] = part
 		}
 	}
-	return slices.Collect(maps.Values(entries)), nil
+	return append(slices.Collect(maps.Values(entries)), metadata.HintMetadata(hints...)...), nil
 }
 
 // authors returns the names of the book's authors: its creators which have
@@ -254,12 +268,21 @@ func (pkg *epubPackage) authors() []string {
 }
 
 // cover returns the book's cover as artwork:cover, downscaled to fit the
-// largest image dimension, or nil when it has none,
-// or it can't be read: the item of its manifest which is its cover image, in
-// EPUB 3, or which its cover meta names, in EPUB 2, or else the image whose
-// identifier or path is a cover. Its path is relative to the package
-// document's directory.
+// largest image dimension, or nil when it has none, or it can't be read (see
+// coverPath)
 func (pkg *epubPackage) cover(archive *zip.Reader, dir string, o *metadata.Opts) metadata.Metadata {
+	if coverPath := pkg.coverPath(dir); coverPath != "" {
+		return zipdoc.Image(archive, coverPath, coverKey, o)
+	}
+	return nil
+}
+
+// coverPath returns the path of the book's cover in its archive, or an
+// empty string when it has none: the item of its manifest which is its
+// cover image, in EPUB 3, or which its cover meta names, in EPUB 2, or else
+// the image whose identifier or path is a cover. Its href is relative to
+// the package document's directory.
+func (pkg *epubPackage) coverPath(dir string) string {
 	href := ""
 	for _, item := range pkg.Manifest {
 		if slices.Contains(strings.Fields(item.Properties), "cover-image") {
@@ -288,14 +311,14 @@ func (pkg *epubPackage) cover(archive *zip.Reader, dir string, o *metadata.Opts)
 		}
 	}
 	if href == "" {
-		return nil
+		return ""
 	}
 
-	// Read the cover, whose path is relative to the package document
+	// The cover's path is relative to the package document
 	if unescaped, err := url.PathUnescape(href); err == nil {
 		href = unescaped
 	}
-	return zipdoc.Image(archive, path.Join(dir, href), coverKey, o)
+	return path.Join(dir, href)
 }
 
 // firstValue returns the first of the elements which has a value

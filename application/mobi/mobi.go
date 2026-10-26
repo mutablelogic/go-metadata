@@ -105,8 +105,9 @@ func init() {
 // mobiMetadata returns the metadata of a book, from its EXTH header: its
 // title, authors, publisher, description, ISBN, subjects, date, language and
 // rights as Dublin Core, and its ASIN and type in the mobi namespace, its
-// cover as artwork:cover, when artwork is requested, and its text as
-// Markdown, when it's requested, a part at a time (see metadata.WithRange)
+// cover as artwork:cover, when artwork is requested, its text as Markdown,
+// when it's requested, a part at a time (see metadata.WithRange), and the
+// hints of a book with text which can be read, and with a cover
 func mobiMetadata(ctx context.Context, r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
 	ra, size, ok, err := readerAt(r)
 	if err != nil || !ok {
@@ -159,6 +160,15 @@ func mobiMetadata(ctx context.Context, r io.Reader, o *metadata.Opts) ([]metadat
 		add(Namespace, "encrypted", true)
 	}
 
+	// The hints of a book with text, and with a cover
+	var hints []string
+	if b.hasText() {
+		hints = append(hints, metadata.HintMarkdown)
+	}
+	if len(b.coverRecords()) > 0 {
+		hints = append(hints, metadata.HintArtwork)
+	}
+
 	// The cover, when artwork is requested
 	if o.HasNamespace(metadata.ArtworkNamespace) {
 		if cover := b.cover(o); cover != nil {
@@ -176,7 +186,7 @@ func mobiMetadata(ctx context.Context, r io.Reader, o *metadata.Opts) ([]metadat
 			entries[part.NS()+string(metadata.Separator)+part.Key()] = part
 		}
 	}
-	return slices.Collect(maps.Values(entries)), nil
+	return append(slices.Collect(maps.Values(entries)), metadata.HintMetadata(hints...)...), nil
 }
 
 // texts returns the values of the book's EXTH records of the kind, as text,
@@ -222,9 +232,22 @@ func (b *book) decode(data []byte) string {
 // the image whose offset from the first image is its cover offset, or else
 // its thumbnail's
 func (b *book) cover(o *metadata.Opts) metadata.Metadata {
+	for _, data := range b.coverRecords() {
+		if cover := artwork.Image(data, coverKey, o); cover != nil {
+			return cover
+		}
+	}
+	return nil
+}
+
+// coverRecords returns the records of the book's cover, and its thumbnail,
+// which its EXTH header has the offsets of from its first image, in that
+// order, without those which can't be read
+func (b *book) coverRecords() [][]byte {
 	if b.header.firstImage == noRecord {
 		return nil
 	}
+	var result [][]byte
 	for _, kind := range []uint32{exthCoverOffset, exthThumbOffset} {
 		for _, record := range b.exth {
 			if record.kind != kind || len(record.data) < 4 {
@@ -234,16 +257,18 @@ func (b *book) cover(o *metadata.Opts) metadata.Metadata {
 			if offset == noRecord {
 				continue
 			}
-			data, err := b.record(int(b.header.firstImage) + int(offset))
-			if err != nil {
-				continue
-			}
-			if cover := artwork.Image(data, coverKey, o); cover != nil {
-				return cover
+			if data, err := b.record(int(b.header.firstImage) + int(offset)); err == nil {
+				result = append(result, data)
 			}
 		}
 	}
-	return nil
+	return result
+}
+
+// hasText returns true when the book has text which can be read: it has text
+// records, and isn't encrypted, or compressed in a way which can't be read
+func (b *book) hasText() bool {
+	return b.header.textRecords > 0 && b.header.encryption == 0 && (b.header.compression == compressionNone || b.header.compression == compressionPalmDOC)
 }
 
 // parseDate returns the book's publishing date, which is a W3C date, from a

@@ -54,6 +54,7 @@ func Test_csv_000(t *testing.T) {
 		"Grace \"Amazing\" Hopper,1906,New York\r\n")
 	want := map[string]string{
 		"metadata:kind": "data",
+		"metadata:hint": "markdown",
 		"dc:type":       "Dataset",
 		"csv:rows":      "3",
 		"csv:columns":   "3",

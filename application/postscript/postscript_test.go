@@ -118,10 +118,10 @@ func Test_postscript_001(t *testing.T) {
 func Test_postscript_002(t *testing.T) {
 	// An EPS file with a DOS EPS header, which isn't text, is detected by
 	// its extension, and its preview is artwork, only when the artwork
-	// namespace is requested
+	// namespace is requested, and it has the artwork hint
 	data := dosEPS("%!PS-Adobe-3.0 EPSF-3.0\r\n%%BoundingBox: 0 0 2 1\r\n%%EndComments\r\n", paletteAlphaTIFF())
 	contentType, got := extract(t, "logo.eps", data)
-	if contentType != "application/postscript" || got["metadata:kind"] != "drawing" || got["artwork:preview"] != "" {
+	if contentType != "application/postscript" || got["metadata:kind"] != "drawing" || got["artwork:preview"] != "" || got["metadata:hint"] != "artwork" {
 		t.Errorf("got %q, %v", contentType, got)
 	}
 	_, meta, err := metadata.Extract(context.Background(), named{bytes.NewReader(data), "logo.eps"}, metadata.WithNamespace(metadata.ArtworkNamespace))

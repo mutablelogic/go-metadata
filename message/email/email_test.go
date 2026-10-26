@@ -71,6 +71,7 @@ func Test_email_001(t *testing.T) {
 	), "letter.eml")
 	want := map[string]string{
 		"metadata:kind":  "email",
+		"metadata:hint":  "markdown",
 		"dc:type":        "Text",
 		"dc:title":       "The Analytical Engine",
 		"dc:creator":     "Ada Lovelace",

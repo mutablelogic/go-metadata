@@ -36,44 +36,7 @@ var (
 // are kept, a blank line separates its paragraphs, and its indentation is
 // kept without the line being code. It stops when a write returns an error.
 func WriteMarkdown(w io.StringWriter, text string) error {
-	lines := strings.Split(strings.ReplaceAll(strings.ReplaceAll(text, "\r\n", "\n"), "\r", "\n"), "\n")
-	for i, line := range lines {
-		line = strings.TrimRight(line, " \t")
-		var end string
-		switch {
-		case i == len(lines)-1:
-			end = ""
-		case line == "" || strings.TrimSpace(lines[i+1]) == "":
-			end = "\n"
-		default:
-			// A hard line break, so the line isn't joined to the next
-			end = "  \n"
-		}
-		if _, err := w.WriteString(markdownLine(line) + end); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// markdownLine returns a line of text as Markdown, with its characters which
-// are Markdown escaped, and its indentation as non-breaking spaces, so it
-// isn't code
-func markdownLine(line string) string {
-	body := strings.TrimLeft(line, " \t")
-	indent := line[:len(line)-len(body)]
-	indent = strings.ReplaceAll(strings.ReplaceAll(indent, "\t", "    "), " ", " ")
-
-	// Escape the characters which are Markdown anywhere, and then those
-	// which are only Markdown at the start of a line, such as a heading,
-	// a list item or a rule
-	body = escaper.Replace(body)
-	if m := reListItem.FindStringSubmatch(body); m != nil {
-		body = m[1] + `\` + body[len(m[1]):]
-	} else if body != "" && strings.ContainsRune("#-+=", rune(body[0])) {
-		body = `\` + body
-	}
-	return indent + body
+	return WriteMarkdownFrom(w, strings.NewReader(text))
 }
 
 // Escape returns the text as Markdown within a line, such as a cell of a

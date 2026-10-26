@@ -13,6 +13,10 @@ import (
 // GLOBALS
 
 const (
+	// svgContentType is the type of an SVG image, whose source is its
+	// Markdown, rather than a note
+	svgContentType = "image/svg+xml"
+
 	// noContentNote is the markdown:note of an image, as it has no text
 	noContentNote = "An image has no content as Markdown, as it isn't text. Read its metadata, such as its size, or its artwork, instead."
 )
@@ -22,9 +26,10 @@ const (
 
 func init() {
 	// A note that an image has no content as Markdown, only when the
-	// markdown namespace is requested
+	// markdown namespace is requested, other than an SVG image, whose source
+	// is its Markdown
 	metadata.AddHandler(reContentType, Namespace+"-markdown", func(_ context.Context, _ io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
-		if !o.HasNamespace(metadata.MarkdownNamespace) {
+		if !o.HasNamespace(metadata.MarkdownNamespace) || o.ContentType() == svgContentType {
 			return nil, nil
 		}
 		return []metadata.Metadata{meta.New(metadata.MarkdownNamespace, "note", noContentNote)}, nil

@@ -51,7 +51,8 @@ func patch(t *testing.T, data []byte, offset int, value uint16) []byte {
 
 func Test_mobi_000(t *testing.T) {
 	// The metadata, from the EXTH header: its authors, rather than its
-	// contributors, its description as plain text, and its ISBN
+	// contributors, its description as plain text, and its ISBN, and the
+	// hints of a book with text and a cover
 	got, err := extract(t, sample(t))
 	if err != nil {
 		t.Fatal(err)
@@ -70,6 +71,7 @@ func Test_mobi_000(t *testing.T) {
 		"mobi:type":      "EBOK",
 		"dc:type":        "Text",
 		"metadata:kind":  "book",
+		"metadata:hint":  "artwork,markdown",
 	}
 	if !maps.Equal(got, want) {
 		t.Errorf("expected %v, got %v", want, got)
@@ -98,7 +100,8 @@ func Test_mobi_001(t *testing.T) {
 
 func Test_mobi_002(t *testing.T) {
 	// A book whose text is encrypted, or compressed in a way which isn't
-	// supported, has a note, rather than its text, and its metadata
+	// supported, has a note, rather than its text, and its metadata, and
+	// isn't hinted to have Markdown
 	for name, test := range map[string]struct {
 		offset int
 		value  uint16
@@ -116,6 +119,8 @@ func Test_mobi_002(t *testing.T) {
 		}
 		if got, err := extract(t, data); err != nil || got["dc:title"] != "A Sample Kindle Book" {
 			t.Errorf("%s: expected the metadata, got %v, %v", name, got, err)
+		} else if got["metadata:hint"] != "artwork" {
+			t.Errorf("%s: expected only the artwork hint, got %q", name, got["metadata:hint"])
 		}
 	}
 	if got, _ := extract(t, patch(t, sample(t), 12, 2)); got["mobi:encrypted"] != "true" {

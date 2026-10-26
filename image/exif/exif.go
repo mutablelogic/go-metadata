@@ -74,6 +74,8 @@ var (
 // LIFECYCLE
 
 func init() {
+	// The EXIF metadata of a JPEG image, and hints of its artwork, when it
+	// has a thumbnail, and its place, when it has a GPS position
 	metadata.AddHandler(reContentType, EXIFNamespace, func(_ context.Context, r io.Reader, _ *metadata.Opts) ([]metadata.Metadata, error) {
 		f, err := exif.Read(r)
 		if err != nil {
@@ -81,8 +83,27 @@ func init() {
 			return nil, nil
 		}
 		defer f.Close()
-		return TagsMetadata(f.Tags()), nil
-	}, TIFFNamespace, EXIFNamespace, dc.Namespace)
+		result := TagsMetadata(f.Tags())
+		hints := PositionHints(result)
+		if len(f.Thumbnail()) > 0 {
+			hints = append(hints, metadata.HintArtwork)
+		}
+		return append(result, metadata.HintMetadata(hints...)...), nil
+	}, TIFFNamespace, EXIFNamespace, dc.Namespace, metadata.MetadataNamespace)
+}
+
+// PositionHints returns the hint of an image's place, metadata.HintGeo,
+// when its metadata has a position, such as the GPS position of its EXIF or
+// XMP metadata, or none
+func PositionHints(meta []metadata.Metadata) []string {
+	for _, m := range meta {
+		if ll, ok := m.Any().(geo.LatLong); ok && ll.Validate() == nil {
+			return []string{metadata.HintGeo}
+		} else if m.Key() == "GPSLatitude" && strings.TrimSpace(m.Value()) != "" {
+			return []string{metadata.HintGeo}
+		}
+	}
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
