@@ -38,6 +38,10 @@ const (
 	// identifiers, which the handler of audio returns from its tags
 	MusicBrainzNamespace = "musicbrainz"
 
+	// audioNamespace is the namespace of audio's metadata, which ffmpeg's
+	// handler reads, such as whether it's protected with DRM, as audio:drm
+	audioNamespace = "audio"
+
 	// minScore is the least score of a match which is the recording, from 0
 	// to 1, as a lower score can be another recording
 	minScore = 0.5
@@ -69,6 +73,12 @@ func init() {
 		client := o.AcoustID()
 		if client == nil || playlist.ContentTypes.MatchString(o.ContentType()) || o.Get(MusicBrainzNamespace, "recording-id") != nil {
 			return nil, nil
+		}
+
+		// Audio which is protected with DRM, such as an iTunes Store song,
+		// can't be decoded, so it isn't fingerprinted, which isn't an error
+		if drm := o.Get(audioNamespace, "drm"); drm != nil && drm.Any() == true {
+			return note("The audio wasn't looked up on AcoustID, as it's protected with DRM, so it can't be fingerprinted."), nil
 		}
 
 		// The AcoustID identifier is in the tags, so look it up for its

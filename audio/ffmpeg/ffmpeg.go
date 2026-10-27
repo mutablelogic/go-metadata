@@ -54,6 +54,10 @@ const (
 	// isrcKey is the key of the ISRC of a recording, which is its
 	// identifier, dc:identifier, when it's valid
 	isrcKey = "audio:isrc"
+
+	// drmsTag is the codec tag of audio protected with Apple's FairPlay, as
+	// ffmpeg reads it, a little-endian fourcc
+	drmsTag = uint32('d') | uint32('r')<<8 | uint32('m')<<16 | uint32('s')<<24
 )
 
 var (
@@ -317,7 +321,7 @@ func normalizeISRC(value string) (string, bool) {
 
 // streamMetadata returns the codec, sample rate, number of channels and bit
 // rate of the first audio stream, by the index of the streams, which don't
-// include cover art
+// include cover art, and whether it's protected with DRM, as audio:drm
 func streamMetadata(streams map[int]profile.Profile) []metadata.Metadata {
 	for _, index := range slices.Sorted(maps.Keys(streams)) {
 		par := streams[index].Par()
@@ -325,6 +329,11 @@ func streamMetadata(streams map[int]profile.Profile) []metadata.Metadata {
 			continue
 		}
 		result := []metadata.Metadata{meta.New(AudioNamespace, "codec", par.CodecID().Name())}
+		if isProtected(par.CodecTag()) {
+			// Audio which is protected with DRM, such as an iTunes Store song
+			// as .m4p, can't be decoded, so it can't be fingerprinted
+			result = append(result, meta.New(AudioNamespace, "drm", true))
+		}
 		if rate := par.SampleRate(); rate > 0 {
 			result = append(result, meta.New(AudioNamespace, "sample-rate", rate))
 		}
@@ -337,6 +346,13 @@ func streamMetadata(streams map[int]profile.Profile) []metadata.Metadata {
 		return result
 	}
 	return nil
+}
+
+// isProtected returns true when a stream's codec tag is of audio which is
+// protected with DRM: Apple's FairPlay, as drms, which iTunes Store songs
+// are, as .m4p
+func isProtected(tag uint32) bool {
+	return tag == drmsTag
 }
 
 // sanitizeKey normalizes a raw ffmpeg/format tag key into a
