@@ -34,3 +34,17 @@ func Test_hint_audio(t *testing.T) {
 		}
 	}
 }
+
+func Test_isProtected(t *testing.T) {
+	// Audio is protected when its codec tag is FairPlay's, drms, which ffmpeg
+	// reads as a little-endian fourcc, and not when it's AAC's, mp4a
+	fourcc := func(s string) uint32 {
+		return uint32(s[0]) | uint32(s[1])<<8 | uint32(s[2])<<16 | uint32(s[3])<<24
+	}
+	if !isProtected(fourcc("drms")) {
+		t.Error("expected drms to be protected")
+	}
+	if isProtected(fourcc("mp4a")) || isProtected(0) {
+		t.Error("expected mp4a, and no tag, not to be protected")
+	}
+}

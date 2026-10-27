@@ -47,6 +47,11 @@ const (
 	// locationKey is the key of the position of a video, in ISO 6709, such as
 	// an Android phone writes, which is a geo.LatLong, as QuickTime's is
 	locationKey = "location"
+
+	// drmiTag and drmsTag are the codec tags of video and audio protected
+	// with Apple's FairPlay, as ffmpeg reads them, little-endian fourccs
+	drmiTag = uint32('d') | uint32('r')<<8 | uint32('m')<<16 | uint32('i')<<24
+	drmsTag = uint32('d') | uint32('r')<<8 | uint32('m')<<16 | uint32('s')<<24
 )
 
 var (
@@ -120,7 +125,8 @@ func init() {
 		if named, ok := r.(metadata.NamedReader); ok {
 			name = named.Name()
 		}
-		return append(append(result, kind...), metadata.HintMetadata(videoHints(result, name)...)...), nil
+		cover := len(rd.Metadata(gomedia.MetaArtwork)) > 0
+		return append(append(result, kind...), metadata.HintMetadata(videoHints(result, name, cover)...)...), nil
 	}, VideoNamespace, AudioNamespace, QuickTimeNamespace, dc.Namespace, metadata.MetadataNamespace)
 }
 
@@ -219,13 +225,17 @@ func tagMetadata(tags []gomedia.Metadata) []metadata.Metadata {
 	return result
 }
 
-// videoHints returns the hints of a video, from its metadata and its name:
-// its artwork, when it has a video stream, as a frame can be its thumbnail,
-// its place, when it has a position, and its collection, when it's an
-// episode of a show, by its tags, or a name such as Show.S01E02.mkv
-func videoHints(meta []metadata.Metadata, name string) []string {
+// videoHints returns the hints of a video, from its metadata, its name, and
+// whether it has cover art: its artwork, when it has a video stream, as a
+// frame can be its thumbnail, unless it's protected with DRM, so a frame
+// can't be decoded, when it's only its cover art, its place, when it has a
+// position, and its collection, when it's an episode of a show, by its tags,
+// or a name such as Show.S01E02.mkv
+func videoHints(meta []metadata.Metadata, name string, cover bool) []string {
 	var hints []string
-	if slices.ContainsFunc(meta, func(m metadata.Metadata) bool { return m.NS() == VideoNamespace && m.Key() == "codec" }) {
+	stream := slices.ContainsFunc(meta, func(m metadata.Metadata) bool { return m.NS() == VideoNamespace && m.Key() == "codec" })
+	drm := slices.ContainsFunc(meta, func(m metadata.Metadata) bool { return m.NS() == VideoNamespace && m.Key() == "drm" })
+	if (stream && !drm) || cover {
 		hints = append(hints, metadata.HintArtwork)
 	}
 	if slices.ContainsFunc(meta, func(m metadata.Metadata) bool {
@@ -245,7 +255,8 @@ func videoHints(meta []metadata.Metadata, name string) []string {
 
 // streamMetadata returns the codec, width and height of the first video
 // stream, and the codec, sample rate and number of channels of the first
-// audio stream, by the index of the streams, which don't include cover art
+// audio stream, by the index of the streams, which don't include cover art,
+// and whether each is protected with DRM, as video:drm and audio:drm
 func streamMetadata(streams map[int]profile.Profile) []metadata.Metadata {
 	var result []metadata.Metadata
 	var video, audio bool
@@ -265,12 +276,18 @@ func streamMetadata(streams map[int]profile.Profile) []metadata.Metadata {
 				meta.New(VideoNamespace, "width", par.Width()),
 				meta.New(VideoNamespace, "height", par.Height()),
 			)
+			if isProtected(par.CodecTag()) {
+				result = append(result, meta.New(VideoNamespace, "drm", true))
+			}
 		case ff.AVMEDIA_TYPE_AUDIO:
 			if audio {
 				continue
 			}
 			audio = true
 			result = append(result, meta.New(AudioNamespace, "codec", par.CodecID().Name()))
+			if isProtected(par.CodecTag()) {
+				result = append(result, meta.New(AudioNamespace, "drm", true))
+			}
 			if rate := par.SampleRate(); rate > 0 {
 				result = append(result, meta.New(AudioNamespace, "sample-rate", rate))
 			}
@@ -280,6 +297,14 @@ func streamMetadata(streams map[int]profile.Profile) []metadata.Metadata {
 		}
 	}
 	return result
+}
+
+// isProtected returns true when a stream's codec tag is of a stream which is
+// protected with Apple's FairPlay DRM: drmi for video, and drms for audio,
+// as iTunes Store films and episodes are, as .m4v, which ffmpeg reads as a
+// little-endian fourcc
+func isProtected(tag uint32) bool {
+	return tag == drmiTag || tag == drmsTag
 }
 
 // parseCreationTime returns the creation time of a container, or false when

@@ -38,6 +38,10 @@ const (
 	// identifiers, which the handler of audio returns from its tags
 	MusicBrainzNamespace = "musicbrainz"
 
+	// audioNamespace is the namespace of audio's metadata, which ffmpeg's
+	// handler reads, such as whether it's protected with DRM, as audio:drm
+	audioNamespace = "audio"
+
 	// minScore is the least score of a match which is the recording, from 0
 	// to 1, as a lower score can be another recording
 	minScore = 0.5
@@ -63,8 +67,8 @@ func init() {
 	// The AcoustID identifier of a recording, and its MusicBrainz recording
 	// and artist identifiers, when there's an AcoustID client, and they
 	// aren't in its tags, which runs after the handler of audio, for its
-	// tags
-	metadata.AddHandlerAfterWithPriority(reContentType, Namespace, priority, []string{Namespace, MusicBrainzNamespace}, func(ctx context.Context, r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
+	// tags, and whether it's protected with DRM
+	metadata.AddHandlerAfterWithPriority(reContentType, Namespace, priority, []string{Namespace, MusicBrainzNamespace, audioNamespace}, func(ctx context.Context, r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
 		// A playlist, which is text, isn't audio which can be looked up
 		client := o.AcoustID()
 		if client == nil || playlist.ContentTypes.MatchString(o.ContentType()) || o.Get(MusicBrainzNamespace, "recording-id") != nil {
@@ -89,6 +93,17 @@ func init() {
 			default:
 				return recordingMetadata(o, best.Recordings), nil
 			}
+		}
+
+		// Audio which is protected with DRM, such as an iTunes Store song,
+		// can't be decoded, so it isn't fingerprinted, which isn't an error,
+		// though its AcoustID identifier, when it's tagged with one, is looked
+		// up, which doesn't decode it
+		if drm := o.Get(audioNamespace, "drm"); drm != nil && drm.Any() == true {
+			if reason != "" {
+				return note(reason + ", and the audio wasn't fingerprinted, as it's protected with DRM."), nil
+			}
+			return note("The audio wasn't looked up on AcoustID, as it's protected with DRM, so it can't be fingerprinted."), nil
 		}
 
 		// Otherwise, look up the fingerprint of the audio, and its duration,
