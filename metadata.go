@@ -104,6 +104,11 @@ const (
 	// in pixels, when it isn't set with WithMaxImageDimension
 	defaultMaxImageDimension = 1024
 
+	// defaultMinImageDimension is the smallest width or height of the longer
+	// side of a thumbnail which is embedded in an image, in pixels, when it
+	// isn't set with WithMinImageDimension
+	defaultMinImageDimension = 256
+
 	// defaultImageDPI is the resolution of an image of a page, in dots per
 	// inch, when it isn't set with WithImageDPI
 	defaultImageDPI = 150
