@@ -251,6 +251,7 @@ Options change what's extracted:
 | `WithRange("0:4096")` | The range of bytes of the Markdown, which is the first kilobyte when it isn't set, with `markdown:next` when there's more |
 | `WithNamespace(metadata.ArtworkNamespace)` | Artwork, whose images are `Image()` and `Bytes()` |
 | `WithMaxImageDimension(pixels)`, `WithImageDPI(dpi)` | The size of artwork, and of the images of pages |
+| `WithMinImageDimension(pixels)` | The smallest thumbnail embedded in an image, such as a photo's EXIF thumbnail, which is its artwork, or else the image itself is (256 pixels by default) |
 | `WithPassword(password)` | The password of an encrypted document |
 | `WithContentType(type)` | The content type, rather than detecting it |
 | `WithMaxSize(bytes)` | The largest input which is read |

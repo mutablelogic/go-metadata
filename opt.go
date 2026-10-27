@@ -38,6 +38,7 @@ type Opts struct {
 	// The largest width or height of an image, in pixels, such as artwork,
 	// which is downscaled to fit
 	maxImageDimension int
+	minImageDimension int
 
 	// The resolution of an image of a page, in dots per inch, which is
 	// downscaled to it
@@ -72,7 +73,7 @@ type Option func(*Opts) error
 // LIFECYCLE
 
 func applyOptions(opts ...Option) (*Opts, error) {
-	o := &Opts{limit: byterange.DefaultLimit, maxImageDimension: defaultMaxImageDimension}
+	o := &Opts{limit: byterange.DefaultLimit, maxImageDimension: defaultMaxImageDimension, minImageDimension: defaultMinImageDimension}
 	for _, opt := range opts {
 		if err := opt(o); err != nil {
 			return nil, err
@@ -154,6 +155,22 @@ func WithMaxImageDimension(pixels int) Option {
 			return ErrBadParameter.Withf("invalid max image dimension: %d", pixels)
 		}
 		o.maxImageDimension = pixels
+		return nil
+	}
+}
+
+// Set the smallest size, in pixels, of the longer side of a thumbnail which
+// is embedded in an image, such as a photo's EXIF thumbnail, which is used as
+// its artwork. A thumbnail which is smaller isn't used, and the image itself,
+// downscaled (see WithMaxImageDimension), is its artwork instead, as a
+// thumbnail which is too small shows too little, such as a camera's 160 by
+// 120 pixels. Zero uses any thumbnail. When not set, it's 256 pixels.
+func WithMinImageDimension(pixels int) Option {
+	return func(o *Opts) error {
+		if pixels < 0 {
+			return ErrBadParameter.Withf("invalid min image dimension: %d", pixels)
+		}
+		o.minImageDimension = pixels
 		return nil
 	}
 }
@@ -273,6 +290,13 @@ func (o *Opts) Range() (offset, limit uint64) {
 // WithMaxImageDimension, or 1024 pixels when it wasn't set
 func (o *Opts) MaxImageDimension() int {
 	return o.maxImageDimension
+}
+
+// MinImageDimension returns the smallest size, in pixels, of the longer side
+// of a thumbnail which is embedded in an image, which is used as its artwork,
+// set via WithMinImageDimension, or 256 pixels when it wasn't set
+func (o *Opts) MinImageDimension() int {
+	return o.minImageDimension
 }
 
 // ImageDPI returns the resolution of an image of a page, in dots per inch,

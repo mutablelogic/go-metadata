@@ -43,6 +43,11 @@ func init() {
 		}
 		defer h.Close()
 		for _, thumbnail := range h.Thumbnails() {
+			// A thumbnail which is too small isn't used, so the image itself
+			// is the artwork
+			if bounds := thumbnail.Bounds(); max(bounds.Dx(), bounds.Dy()) < o.MinImageDimension() {
+				continue
+			}
 			if data := artwork.Encode(artwork.Downscale(thumbnail, o.MaxImageDimension())); data != nil {
 				return []metadata.Metadata{meta.NewImage(metadata.ArtworkNamespace, thumbnailKey, data)}, nil
 			}

@@ -57,12 +57,15 @@ func init() {
 
 // thumbnailArtwork returns the thumbnail as artwork:thumbnail, transformed
 // by the orientation of the photo, as it has no EXIF data of its own, or nil
-// when there isn't one, or it isn't an image, such as when it's cut short,
-// so the photo itself is the artwork
+// when there isn't one, it isn't an image, such as when it's cut short, or
+// it's smaller than the smallest thumbnail (see
+// metadata.WithMinImageDimension), so the photo itself is the artwork
 func thumbnailArtwork(data []byte, orientation int, o *metadata.Opts) metadata.Metadata {
 	if len(data) == 0 {
 		return nil
-	} else if _, _, err := image.Decode(bytes.NewReader(data)); err != nil {
+	} else if img, _, err := image.Decode(bytes.NewReader(data)); err != nil {
+		return nil
+	} else if bounds := img.Bounds(); max(bounds.Dx(), bounds.Dy()) < o.MinImageDimension() {
 		return nil
 	}
 	return artwork.OrientedImage(data, thumbnailKey, orientation, o)

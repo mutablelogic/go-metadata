@@ -180,6 +180,46 @@ func Test_exif_004(t *testing.T) {
 	}
 }
 
+func Test_exif_007(t *testing.T) {
+	// A thumbnail which is smaller than the smallest isn't the artwork, so
+	// the photo itself, downscaled, is, which is larger, and zero uses any
+	// thumbnail
+	path := filepath.Join(TEST_DIR, "PXL_20250102_172041079.MP.jpg")
+	for _, test := range []struct {
+		min      int
+		longest  int
+		embedded bool
+	}{
+		{600, 1024, false},
+		{504, 504, true},
+		{0, 504, true},
+	} {
+		f, err := os.Open(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		meta, err := getMetadata(context.Background(), f, "image/jpeg", metadata.WithNamespace(metadata.ArtworkNamespace), metadata.WithMinImageDimension(test.min))
+		f.Close()
+		if err != nil {
+			t.Fatal(err)
+		} else if len(meta) != 1 || key(meta[0]) != "artwork:thumbnail" {
+			t.Fatalf("min %d: expected artwork:thumbnail, got %v", test.min, meta)
+		}
+		img, _, err := image.Decode(bytes.NewReader(meta[0].Bytes()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if longest := max(img.Bounds().Dx(), img.Bounds().Dy()); longest != test.longest {
+			t.Errorf("min %d: expected the longest side to be %d, got %d", test.min, test.longest, longest)
+		}
+	}
+
+	// The smallest can't be negative
+	if _, err := getMetadata(context.Background(), bytes.NewReader(nil), "image/jpeg", metadata.WithMinImageDimension(-1)); err == nil {
+		t.Error("expected an error for a negative min image dimension")
+	}
+}
+
 func Test_exif_005(t *testing.T) {
 	// The artwork of a photo without a thumbnail is the photo itself, from
 	// the raster images' handler, and a photo whose thumbnail is cut short,
