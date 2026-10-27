@@ -60,6 +60,7 @@ func init() {
 		}
 		result := append(messageMetadata(m), kind...)
 		result = append(result, metadata.HintMetadata(Hints(m)...)...)
+		result = append(result, metadata.TagMetadata(Tags(m)...)...)
 		if !o.HasNamespace(metadata.MarkdownNamespace) {
 			return result, nil
 		}
@@ -67,6 +68,17 @@ func init() {
 		markdown, err := w.Metadata(writeMarkdown(ctx, w, m))
 		return append(result, markdown...), err
 	}, Namespace, dc.Namespace, metadata.MetadataNamespace, metadata.MarkdownNamespace)
+}
+
+// Tags returns the tags of a message: event, when a calendar is attached to
+// it, such as an invitation
+func Tags(m *eml.Message) []string {
+	for _, a := range m.Attachments {
+		if contentType, _, _ := mime.ParseMediaType(a.ContentType); contentType == "text/calendar" {
+			return []string{"event"}
+		}
+	}
+	return nil
 }
 
 // Hints returns the hints of a message: that it can be read as Markdown,

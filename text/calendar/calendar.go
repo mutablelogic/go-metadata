@@ -112,9 +112,27 @@ func init() {
 		if len(c.Events) == 1 && c.Events[0].Kind == ical.KindEvent {
 			kind = dc.KindEvent
 		}
-		result := append(calendarMetadata(c), metadata.KindMetadata(kind)...)
-		return append(result, metadata.HintMetadata(calendarHints(c)...)...), nil
+		events := make([]Event, len(c.Events))
+		for i, e := range c.Events {
+			events[i] = toEvent(e)
+		}
+		result := append(calendarMetadata(c, events), metadata.KindMetadata(kind)...)
+		result = append(result, metadata.HintMetadata(calendarHints(c)...)...)
+		return append(result, metadata.TagMetadata(calendarTags(events)...)...), nil
 	}, Namespace, dc.Namespace, metadata.MetadataNamespace)
+}
+
+// calendarTags returns the tags of a calendar's events: event, when it has
+// events, and what its events are, such as birthday, all-day or recurring
+func calendarTags(events []Event) []string {
+	var tags []string
+	if len(events) > 0 {
+		tags = append(tags, "event")
+	}
+	for _, e := range events {
+		tags = append(tags, e.types()...)
+	}
+	return tags
 }
 
 // calendarHints returns the hints of a calendar: when it has events, that
@@ -163,13 +181,9 @@ func calendarHints(c *ical.Calendar) []string {
 // When there's only one, its description is the calendar's, rather than
 // stored again with it.
 // Reference: https://www.rfc-editor.org/rfc/rfc5545
-func calendarMetadata(c *ical.Calendar) []metadata.Metadata {
+func calendarMetadata(c *ical.Calendar, events []Event) []metadata.Metadata {
 	// All the events, which describe the calendar, of which the first are
 	// stored, with their locations
-	events := make([]Event, len(c.Events))
-	for i, e := range c.Events {
-		events[i] = toEvent(e)
-	}
 	stored := events[:min(len(events), maxEvents)]
 
 	var result []metadata.Metadata

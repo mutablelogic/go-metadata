@@ -235,6 +235,13 @@ the handlers which read it found, so an indexer knows what's worth the work:
 | `event` | It has events, such as a calendar's, a contact's birthday, or an invitation |
 | `geo` | It has places, such as where a photo was taken, a contact's address, or GeoJSON |
 
+`metadata:tag` is a list of tags, which are identifiers in lower case, of what a file is or has,
+from all the handlers which read it, so an indexer can select files by them, and search for them:
+a calendar of events is tagged `event`, and with what its events are, such as `birthday`,
+`all-day`, `recurring`, `task` or `out-of-office`, and an email with a calendar attached to it,
+such as an invitation, and a mailbox with one, are tagged `event`. A handler returns them with
+`TagMetadata`, which leaves out those which aren't identifiers.
+
 Options change what's extracted:
 
 | Option | |

@@ -588,6 +588,39 @@ func Test_metadata_priority_000(t *testing.T) {
 	}
 }
 
+func Test_metadata_priority_001(t *testing.T) {
+	// The tags of every handler, whatever its priority, are combined as one
+	// metadata:tag, sorted and without duplicates
+	re := regexp.MustCompile(`^application/x-test-priority-tags$`)
+	tags := func(tags ...string) HandlerFunc {
+		return func(context.Context, io.Reader, *Opts) ([]Metadata, error) {
+			return TagMetadata(tags...), nil
+		}
+	}
+	AddHandler(re, "low", tags("recurring", "event"))
+	AddHandlerWithPriority(re, "high", 10, tags("inbox", "event"))
+	AddHandlerWithPriority(re, "same-a", 5, tags("work", "birthday"))
+	AddHandlerWithPriority(re, "same-b", 5, tags("birthday", "all-day"))
+
+	for i := 0; i < 10; i++ {
+		_, result, err := Extract(context.Background(), bytes.NewReader([]byte("data")), WithContentType("application/x-test-priority-tags"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got [][]string
+		for _, m := range result {
+			if m.NS() == MetadataNamespace && m.Key() == TagKey {
+				tags, _ := m.Any().([]string)
+				got = append(got, tags)
+			}
+		}
+		want := []string{"all-day", "birthday", "event", "inbox", "recurring", "work"}
+		if len(got) != 1 || !slices.Equal(got[0], want) {
+			t.Fatalf("expected one metadata:tag of %v, got %v", want, got)
+		}
+	}
+}
+
 func Test_metadata_018(t *testing.T) {
 	// When the context is done while a handler which doesn't stop is
 	// running, Extract returns at once, with the context's error, and the
@@ -818,5 +851,20 @@ func Test_ogg_000(t *testing.T) {
 		} else if contentType != want {
 			t.Errorf("%s: got %q, want %q", name, contentType, want)
 		}
+	}
+}
+
+func Test_metadata_tags(t *testing.T) {
+	// Tags are identifiers in lower case, without duplicates, and those which
+	// aren't identifiers are left out
+	meta := TagMetadata(" Event", "event", "1bad", "out-of-office", "", "two words")
+	if len(meta) != 1 || meta[0].NS() != MetadataNamespace || meta[0].Key() != TagKey {
+		t.Fatalf("expected metadata:tag, got %v", meta)
+	}
+	if got, ok := meta[0].Any().([]string); !ok || !slices.Equal(got, []string{"event", "out-of-office"}) {
+		t.Fatalf("expected [event out-of-office], got %v", meta[0].Any())
+	}
+	if meta := TagMetadata("", "1bad"); meta != nil {
+		t.Fatalf("expected no tags, got %v", meta)
 	}
 }
