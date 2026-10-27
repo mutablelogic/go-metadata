@@ -101,7 +101,8 @@ func Test_playlist(t *testing.T) {
 
 func Test_protected(t *testing.T) {
 	// Audio which is protected isn't fingerprinted, which isn't an error, and
-	// has a note of why it wasn't looked up
+	// has a note of why it wasn't looked up, when all the namespaces are
+	// read, and when only AcoustID's are, as it depends on audio's
 	metadata.AddHandler(regexp.MustCompile(`^audio/x-test-protected$`), "protected", func(context.Context, io.Reader, *metadata.Opts) ([]metadata.Metadata, error) {
 		return []metadata.Metadata{meta.New(audioNamespace, "drm", true)}, nil
 	}, audioNamespace)
@@ -109,17 +110,20 @@ func Test_protected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, md, err := metadata.Extract(context.Background(), strings.NewReader("not audio"), metadata.WithAcoustID(c), metadata.WithContentType("audio/x-test-protected"))
-	if err != nil {
-		t.Fatalf("unexpected error %v", err)
-	}
-	found := false
-	for _, m := range md {
-		if m.NS() == Namespace && m.Key() == "note" {
-			found = strings.Contains(m.Value(), "protected")
+	for _, opts := range [][]metadata.Option{nil, {metadata.WithNamespace(Namespace)}} {
+		opts = append(opts, metadata.WithAcoustID(c), metadata.WithContentType("audio/x-test-protected"))
+		_, md, err := metadata.Extract(context.Background(), strings.NewReader("not audio"), opts...)
+		if err != nil {
+			t.Fatalf("unexpected error %v", err)
 		}
-	}
-	if !found {
-		t.Errorf("expected a note that the audio is protected, got %v", md)
+		found := false
+		for _, m := range md {
+			if m.NS() == Namespace && m.Key() == "note" {
+				found = strings.Contains(m.Value(), "protected")
+			}
+		}
+		if !found {
+			t.Errorf("expected a note that the audio is protected, got %v", md)
+		}
 	}
 }
