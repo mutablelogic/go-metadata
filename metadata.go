@@ -126,6 +126,11 @@ const (
 	// list when no handler can read it, as there's nothing more to read of it
 	HintKey = "hint"
 
+	// TagKey is the key of the tags of the input, in the metadata namespace,
+	// such as event or birthday, which are a list of identifiers, of all the
+	// handlers which read it (see TagMetadata)
+	TagKey = "tag"
+
 	// ArtworkNamespace is the namespace of images which represent a
 	// document, such as the thumbnails of its pages, which a handler
 	// returns only when it's requested, as extracting them is expensive
@@ -137,6 +142,9 @@ const (
 	// Namespace for markdown text
 	NamespaceMarkdown = "markdown"
 )
+
+// reTag matches a tag, which is an identifier in lower case
+var reTag = regexp.MustCompile(`^[a-z][a-z0-9_-]*$`)
 
 var handlerlock sync.Mutex
 var handlers []entry
@@ -212,6 +220,27 @@ func HintMetadata(hints ...string) []Metadata {
 		return nil
 	}
 	return []Metadata{hintMeta(slices.Clone(hints))}
+}
+
+// TagMetadata returns the metadata of the tags of an input, which a handler
+// returns for an input it reads, such as event for a calendar of events, as
+// metadata:tag, or nil when there are none. A tag is an identifier: it's in
+// lower case, and one which isn't an identifier, which starts with a letter,
+// followed by letters, digits, underscores and hyphens, is left out. Extract
+// returns the tags of all the handlers which read an input as one sorted
+// list, without duplicates, whatever their priorities. A handler which
+// returns it registers the metadata namespace.
+func TagMetadata(tags ...string) []Metadata {
+	var result tagMeta
+	for _, tag := range tags {
+		if tag = strings.ToLower(strings.TrimSpace(tag)); reTag.MatchString(tag) && !slices.Contains(result, tag) {
+			result = append(result, tag)
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return []Metadata{result}
 }
 
 // KindMetadata returns the metadata of the kind of an input, such as a book
@@ -499,6 +528,7 @@ func combine(results []result) []Metadata {
 	})
 	var meta []Metadata
 	var hints hintMeta
+	var tags tagMeta
 	claimed := make(map[string]int)
 	for i, r := range results {
 		// The keys which handlers with the same priority claim once
@@ -519,6 +549,10 @@ func combine(results []result) []Metadata {
 				// The hints of every handler, whatever its priority
 				hints = append(hints, hint...)
 				continue
+			} else if tag, ok := m.(tagMeta); ok {
+				// The tags of every handler, whatever its priority
+				tags = append(tags, tag...)
+				continue
 			} else if priority, exists := claimed[metaKey(m)]; exists && priority > r.priority {
 				continue
 			}
@@ -528,6 +562,10 @@ func combine(results []result) []Metadata {
 	if len(hints) > 0 {
 		slices.Sort(hints)
 		meta = append(meta, slices.Compact(hints))
+	}
+	if len(tags) > 0 {
+		slices.Sort(tags)
+		meta = append(meta, slices.Compact(tags))
 	}
 	return meta
 }
@@ -579,6 +617,16 @@ func (m hintMeta) Value() string      { return strings.Join(m, ",") }
 func (m hintMeta) Bytes() []byte      { return []byte(m.Value()) }
 func (m hintMeta) Image() image.Image { return nil }
 func (m hintMeta) Any() any           { return []string(m) }
+
+// tagMeta is the tags of an input, as metadata:tag
+type tagMeta []string
+
+func (m tagMeta) NS() string         { return MetadataNamespace }
+func (m tagMeta) Key() string        { return TagKey }
+func (m tagMeta) Value() string      { return strings.Join(m, ",") }
+func (m tagMeta) Bytes() []byte      { return []byte(m.Value()) }
+func (m tagMeta) Image() image.Image { return nil }
+func (m tagMeta) Any() any           { return []string(m) }
 
 type valueMeta struct {
 	ns, key, value string

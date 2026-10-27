@@ -68,3 +68,40 @@ func Test_hint_000(t *testing.T) {
 		}
 	}
 }
+
+// tagsOf returns the tags of the data of the type, when it's indexed
+func tagsOf(t *testing.T, data, contentType string) []string {
+	t.Helper()
+	_, meta, err := metadata.Extract(context.Background(), bytes.NewReader([]byte(data)), metadata.WithContentType(contentType))
+	if err != nil {
+		t.Fatalf("%s: %v", contentType, err)
+	}
+	for _, m := range meta {
+		if m.NS() == metadata.MetadataNamespace && m.Key() == metadata.TagKey {
+			tags, _ := m.Any().([]string)
+			return tags
+		}
+	}
+	return nil
+}
+
+func Test_tag_000(t *testing.T) {
+	// A calendar of events is tagged event, and with what its events are,
+	// such as a birthday, and an email with an invitation is tagged event,
+	// as is a mailbox with one, but text isn't tagged
+	for _, test := range []struct {
+		name, contentType, data string
+		want                    []string
+	}{
+		{"meeting", "text/calendar", "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:a\r\nDTSTART:20261026T100000Z\r\nDTEND:20261026T110000Z\r\nSUMMARY:Meeting\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n", []string{"event"}},
+		{"birthday", "text/calendar", "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:b\r\nDTSTART;VALUE=DATE:20261210\r\nDTEND;VALUE=DATE:20261211\r\nRRULE:FREQ=YEARLY\r\nCATEGORIES:Birthday\r\nSUMMARY:Ada\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n", []string{"all-day", "birthday", "event", "recurring"}},
+		{"empty calendar", "text/calendar", "BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n", nil},
+		{"email", "message/rfc822", "From: ada@example.com\r\nSubject: Notes\r\n\r\nHello\r\n", nil},
+		{"invitation", "message/rfc822", "From: ada@example.com\r\nSubject: Meeting\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=b\r\n\r\n--b\r\nContent-Type: text/plain\r\n\r\nCome\r\n--b\r\nContent-Type: text/calendar; method=REQUEST\r\nContent-Disposition: attachment; filename=invite.ics\r\n\r\nBEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n--b--\r\n", []string{"event"}},
+		{"plain", "text/plain", "Hello", nil},
+	} {
+		if got := tagsOf(t, test.data, test.contentType); !slices.Equal(got, test.want) {
+			t.Errorf("%s: expected %v, got %v", test.name, test.want, got)
+		}
+	}
+}

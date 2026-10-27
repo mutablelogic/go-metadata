@@ -820,3 +820,18 @@ func Test_ogg_000(t *testing.T) {
 		}
 	}
 }
+
+func Test_metadata_tags(t *testing.T) {
+	// Tags are identifiers in lower case, without duplicates, and those which
+	// aren't identifiers are left out
+	meta := TagMetadata(" Event", "event", "1bad", "out-of-office", "", "two words")
+	if len(meta) != 1 || meta[0].NS() != MetadataNamespace || meta[0].Key() != TagKey {
+		t.Fatalf("expected metadata:tag, got %v", meta)
+	}
+	if got, ok := meta[0].Any().([]string); !ok || !slices.Equal(got, []string{"event", "out-of-office"}) {
+		t.Fatalf("expected [event out-of-office], got %v", meta[0].Any())
+	}
+	if meta := TagMetadata("", "1bad"); meta != nil {
+		t.Fatalf("expected no tags, got %v", meta)
+	}
+}
