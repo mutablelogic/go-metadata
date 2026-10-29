@@ -174,7 +174,7 @@ func init() {
 			return m.NS() == AudioNamespace && m.Key() == "drm" && m.Any() == true
 		})
 		classified := o.ClassifyAudio() && classify.Enabled
-		hints := audioHints(entries, len(rd.Metadata(gomedia.MetaArtwork)) > 0, drm || classified)
+		hints := audioHints(entries, len(rd.Metadata(gomedia.MetaArtwork)) > 0, drm, classified)
 		return append(append(append(result, streams...), kind...), metadata.HintMetadata(hints...)...), nil
 	}, AudioNamespace, MusicBrainzNamespace, AcoustIDNamespace, dc.Namespace, metadata.MetadataNamespace)
 }
@@ -183,18 +183,19 @@ func init() {
 // PRIVATE METHODS
 
 // audioHints returns the hints of audio, from its tags: its artwork, when it
-// has cover art, which is attached to it, its transcription, when it has no
-// MusicBrainz or AcoustID tags, so it isn't known to be music, and may be
-// speech, unless noTranscription, such as when it's protected with DRM, so
-// can't be decoded, or it's classified, which decides it instead, and its
-// release, by its MusicBrainz release type (see releaseHint), or as an
-// album, when it has an album's name and no release type
-func audioHints(entries []entry, cover, noTranscription bool) []string {
+// has cover art, which is attached to it, its transcription, unless it's
+// protected with DRM, so can't be decoded, when it's tagged as spoken word
+// (see isSpoken), or else, when it isn't classified, which decides it
+// instead, when it has no MusicBrainz or AcoustID tags, so it isn't known to
+// be music, and may be speech, and its release, by its MusicBrainz release
+// type (see releaseHint), or as an album, when it has an album's name and no
+// release type
+func audioHints(entries []entry, cover, drm, classified bool) []string {
 	var hints []string
 	if cover {
 		hints = append(hints, metadata.HintArtwork)
 	}
-	if !noTranscription && !slices.ContainsFunc(entries, func(e entry) bool { return e.ns == MusicBrainzNamespace || e.ns == AcoustIDNamespace }) {
+	if !drm && (isSpoken(entries) || (!classified && !slices.ContainsFunc(entries, func(e entry) bool { return e.ns == MusicBrainzNamespace || e.ns == AcoustIDNamespace }))) {
 		hints = append(hints, metadata.HintTranscription)
 	}
 	if i := slices.IndexFunc(entries, func(e entry) bool { return e.ns == MusicBrainzNamespace && e.key == "release-type" }); i >= 0 {
@@ -207,6 +208,30 @@ func audioHints(entries []entry, cover, noTranscription bool) []string {
 		hints = append(hints, metadata.HintAlbum)
 	}
 	return hints
+}
+
+// isSpoken returns true when audio is tagged as spoken word: an audiobook or
+// spoken word as any of its MusicBrainz release types, or spoken word, a
+// podcast or an audiobook as any of its genres, however they're written,
+// such as Spoken Word or audio-book
+func isSpoken(entries []entry) bool {
+	return slices.ContainsFunc(entries, func(e entry) bool {
+		var spoken []string
+		switch {
+		case e.ns == MusicBrainzNamespace && e.key == "release-type":
+			spoken = []string{"audiobook", "spokenword"}
+		case e.ns == AudioNamespace && e.key == "genre":
+			spoken = []string{"audiobook", "spokenword", "podcast"}
+		default:
+			return false
+		}
+		for _, value := range strings.FieldsFunc(fmt.Sprint(e.value), func(r rune) bool { return r == ';' || r == ',' || r == '/' }) {
+			if slices.Contains(spoken, strings.NewReplacer(" ", "", "-", "", "_", "").Replace(strings.ToLower(value))) {
+				return true
+			}
+		}
+		return false
+	})
 }
 
 // releaseHint returns the hint of a track of a release, from its
