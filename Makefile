@@ -98,9 +98,10 @@ CGO_ENABLED ?= $(if $(CGO_MISSING)$(CGO_OLD)$(FFMPEG_WRONG),0,1)
 export CGO_ENABLED
 
 # Chromaprint, for the fingerprints of audio, which are looked up on AcoustID,
-# is optional: with cgo, and when it's found, it's built with the chromaprint
-# tag, or else audio isn't looked up on AcoustID
-CHROMAPRINT := $(if $(filter 1,$(CGO_ENABLED)),$(if $(PKG_CONFIG),$(shell $(PKGCONF) --exists libchromaprint && echo yes)))
+# is optional: with cgo, and when it's found, with libfvad, which go-media's
+# segmenter decodes audio with, it's built with the chromaprint tag, or else
+# audio isn't looked up on AcoustID
+CHROMAPRINT := $(if $(filter 1,$(CGO_ENABLED)),$(if $(PKG_CONFIG),$(shell $(PKGCONF) --exists libchromaprint libfvad && echo yes)))
 GO_TAGS ?= $(if $(CHROMAPRINT),chromaprint)
 GO_TAGS_FLAG := $(if $(GO_TAGS),-tags "$(GO_TAGS)")
 
@@ -198,7 +199,7 @@ deps: go-dep
 	@$(if $(CGO_MISSING),echo "Not found: $(CGO_MISSING)")
 	@$(if $(CGO_OLD),echo "Too old: $(CGO_OLD)")
 	@echo "CGO_ENABLED=$(CGO_ENABLED)"
-	@echo "Chromaprint: $(if $(CHROMAPRINT),$(shell $(PKGCONF) --modversion libchromaprint) (-tags chromaprint),not found$(comma) so audio isn't looked up on AcoustID)"
+	@echo "Chromaprint and libfvad: $(if $(CHROMAPRINT),$(shell $(PKGCONF) --modversion libchromaprint) (-tags chromaprint),not found$(comma) so audio isn't looked up on AcoustID)"
 	@$(if $(filter 0,$(CGO_ENABLED)),echo "$(NOCGO_NOTE)")
 
 # Check the code with go vet

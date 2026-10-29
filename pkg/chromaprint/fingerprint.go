@@ -10,7 +10,7 @@ import (
 	"unsafe"
 
 	// Packages
-	segmenter "github.com/mutablelogic/go-media/pkg/segmenter"
+	segmenter "github.com/mutablelogic/go-media/segmenter"
 	chromaprint "github.com/mutablelogic/go-media/sys/chromaprint"
 )
 
@@ -35,7 +35,7 @@ const (
 // duration of the audio, which is the whole of it, when it's known, or else
 // of what was fingerprinted
 func Fingerprint(ctx context.Context, r io.Reader) (string, time.Duration, error) {
-	seg, err := segmenter.NewFromReader(r, sampleRate, segmenter.WithSegmentSize(time.Second))
+	seg, err := segmenter.NewReader(r, sampleRate, segmenter.WithSegments(time.Second))
 	if err != nil {
 		return "", 0, err
 	}
@@ -52,18 +52,19 @@ func Fingerprint(ctx context.Context, r io.Reader) (string, time.Duration, error
 
 	// Write the samples, up to MaxDuration
 	var decoded time.Duration
-	if err := seg.DecodeInt16(ctx, func(timestamp time.Duration, data []int16) error {
-		if timestamp >= MaxDuration {
+	if err := seg.Decode(ctx, func(segment *segmenter.Segment) error {
+		if segment.Start >= MaxDuration {
 			return io.EOF
-		} else if len(data) == 0 {
+		} else if len(segment.Samples) == 0 {
 			return nil
 		}
+		data := segment.Int16()
 		// The samples as bytes, which keeps them a Go pointer, rather than a
 		// uintptr, which isn't one
 		if err := fp.Write(unsafe.Slice((*byte)(unsafe.Pointer(&data[0])), len(data)*2)); err != nil {
 			return err
 		}
-		decoded = timestamp + time.Duration(len(data))*time.Second/sampleRate
+		decoded = segment.Start + segment.Duration
 		return nil
 	}); err != nil && !errors.Is(err, io.EOF) {
 		return "", 0, err

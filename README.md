@@ -30,7 +30,7 @@ libraries, through cgo:
 | EXIF metadata of photos (`image/exif`) | libexif |
 | HEIF and AVIF images (`image/heif`) | libheif |
 | Camera RAW images (`image/raw`) | LibRaw |
-| Fingerprints of audio, to look it up on AcoustID (`pkg/chromaprint`) | Chromaprint, which is optional |
+| Fingerprints of audio, to look it up on AcoustID (`pkg/chromaprint`) | Chromaprint and libfvad, which are optional |
 
 FFmpeg needs to be FFmpeg 8, which go-media's bindings are for: FFmpeg 9 removed parts of its
 API which they use. These are only built with cgo. Without it, which is `CGO_ENABLED=0`, or when there's no C
@@ -39,7 +39,7 @@ metadata or artwork from audio and video files, no EXIF metadata from photos, an
 HEIF and RAW images other than their type and kind.
 
 Chromaprint is only built with the `chromaprint` build tag, which the Makefile sets when it finds
-it. Without it, audio is only looked up on AcoustID by the AcoustID identifier in its tags.
+it and libfvad, which go-media's segmenter decodes the audio with. Without it, audio is only looked up on AcoustID by the AcoustID identifier in its tags.
 Homebrew's `chromaprint` is built with FFmpeg 9, so to fingerprint audio on macOS, build
 go-media's libraries, and set `GO_MEDIA_PREFIX` (see below).
 
@@ -84,8 +84,8 @@ bindings, can build FFmpeg 8 and the other libraries from source, as static libr
 `make` in a clone of it, and then build go-metadata with `make GO_MEDIA_PREFIX=<go-media>/build/install`,
 or with `go` itself, with `PKG_CONFIG_PATH` set to its `build/install/lib/pkgconfig` folder,
 `CGO_LDFLAGS_ALLOW="-(W|D).*"` and `CGO_LDFLAGS="-lstdc++"`, and `-tags chromaprint` to
-fingerprint audio. `make ffmpeg chromaprint libexif libraw libheif` in go-media builds the
-libraries which go-metadata uses.
+fingerprint audio. `make ffmpeg chromaprint libexif libraw libheif libfvad` in go-media builds
+the libraries which go-metadata uses.
 
 **Windows** (with [MSYS2](https://www.msys2.org/), in its UCRT64 environment, which provides
 the C compiler too):
@@ -304,6 +304,7 @@ of the C libraries they link to:
 | [libheif](https://github.com/strukturag/libheif) | HEIF and AVIF images | LGPL 3.0 |
 | [LibRaw](https://www.libraw.org/) | Camera RAW images | LGPL 2.1 or CDDL 1.0, with bundled code under BSD and MIT licenses |
 | [Chromaprint](https://acoustid.org/chromaprint) | Fingerprints of audio, with the `chromaprint` tag | LGPL 2.1, as it includes parts of FFmpeg; its own code is MIT |
+| [libfvad](https://github.com/dpirch/libfvad) | Decoding audio to fingerprint it, with the `chromaprint` tag | BSD 3-clause, with a grant of patent rights |
 
 **Requirements when distributing binaries which include the LGPL libraries:**
 
@@ -337,7 +338,7 @@ module with its version.
 
 | Module | Used for | Licence |
 | --- | --- | --- |
-| [`github.com/mutablelogic/go-media`](https://github.com/mutablelogic/go-media) | The C bindings of FFmpeg, libexif, libheif, LibRaw and Chromaprint | Apache 2.0 |
+| [`github.com/mutablelogic/go-media`](https://github.com/mutablelogic/go-media) | The C bindings of FFmpeg, libexif, libheif, LibRaw, Chromaprint and libfvad, and the segmenter which decodes audio to fingerprint it | Apache 2.0 |
 | [`github.com/mutablelogic/go-client`](https://github.com/mutablelogic/go-client) | The TMDB and AcoustID clients | Apache 2.0 |
 | [`github.com/mutablelogic/go-server`](https://github.com/mutablelogic/go-server) | Errors and types | Apache 2.0 |
 | [`github.com/mutablelogic/go-tokenizer`](https://github.com/mutablelogic/go-tokenizer) | Markdown documents | Apache 2.0 |
