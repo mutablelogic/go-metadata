@@ -8,8 +8,7 @@ on:
   workflow_dispatch:
 
 # Cancel a run for the same branch or pull request when a new commit
-# supersedes it, rather than running both, as both would build, and save, the
-# same libraries
+# supersedes it, rather than running both
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -43,75 +42,50 @@ jobs:
       - name: Run tests
         run: make test-nocgo
 
-  cgo:
-    name: Test with cgo
+  # The version of go-media in go.mod, whose dev image, of its libraries,
+  # the tests with cgo are run in, as its bindings are for its versions of
+  # them
+  version:
+    name: Version of go-media
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.gomedia.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-        with:
-          path: go-metadata
+
+      - name: Version of go-media
+        id: gomedia
+        run: echo "version=$(awk '$1 == "github.com/mutablelogic/go-media" { print $2 }' go.mod)" >> "$GITHUB_OUTPUT"
+
+  # The tests with cgo, in go-media's dev image, which has its libraries,
+  # built with FFmpeg's LGPL license, as go-metadata only decodes, in
+  # /opt/go-media, with their headers, and the tools to build with them, so
+  # they aren't built here
+  cgo:
+    name: Test with cgo
+    needs: version
+    runs-on: ubuntu-latest
+    container: ghcr.io/mutablelogic/go-media:${{ needs.version.outputs.version }}-lgpl-dev
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
 
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version-file: go-metadata/go.mod
-          cache-dependency-path: go-metadata/go.sum
+          go-version-file: go.mod
 
-      # The version of go-media in go.mod, whose libraries are built, as its
-      # bindings are for its versions of them
-      - name: Version of go-media
-        id: gomedia
-        working-directory: go-metadata
-        run: echo "version=$(go list -m -f '{{.Version}}' github.com/mutablelogic/go-media)" >> "$GITHUB_OUTPUT"
-
-      # The build tools of the libraries, and the codecs which FFmpeg and
-      # libheif are built with, as go-media's own workflow installs them,
-      # which are needed to link the libraries, so they're installed even
-      # when the libraries are cached
-      - name: Install build tools
-        run: sudo apt -y update && sudo apt -y install nasm cmake libde265-dev libaom-dev libdav1d-dev libxml2-dev liblzma-dev
-
-      # go-media's installed libraries, for its version, which are only
-      # built when they aren't cached, as its Makefile builds them again
-      # whenever it's run. They're saved once they're built, rather than at
-      # the end of the job, which only saves them when the tests pass.
-      - name: Restore go-media's libraries
-        id: cache
-        uses: actions/cache/restore@v6
-        with:
-          path: go-media/build/install
-          key: ${{ runner.os }}-${{ runner.arch }}-go-media-${{ steps.gomedia.outputs.version }}-libraries
-
-      - name: Checkout go-media
-        if: steps.cache.outputs.cache-hit != 'true'
-        uses: actions/checkout@v7
-        with:
-          repository: mutablelogic/go-media
-          ref: ${{ steps.gomedia.outputs.version }}
-          path: go-media
-
-      # FFmpeg 8, libexif, LibRaw and libheif, which go-metadata uses, and
-      # Chromaprint and libfvad, for audio fingerprinting
-      - name: Build go-media's libraries
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: make -C go-media ffmpeg chromaprint libexif libraw libheif libfvad
-
-      - name: Save go-media's libraries
-        if: steps.cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
-        with:
-          path: go-media/build/install
-          key: ${{ steps.cache.outputs.cache-primary-key }}
+      # The types of files by their extensions, which content types are
+      # detected with, as Ubuntu has, which the image doesn't
+      - name: Install media types
+        run: apt-get update -y && apt-get install -y --no-install-recommends media-types shared-mime-info
 
       - name: Report the libraries
-        working-directory: go-metadata
-        run: make deps GO_MEDIA_PREFIX=${{ github.workspace }}/go-media/build/install
+        run: make deps GO_MEDIA_PREFIX=/opt/go-media
 
       - name: Vet
-        working-directory: go-metadata
-        run: make vet CGO_ENABLED=1 GO_MEDIA_PREFIX=${{ github.workspace }}/go-media/build/install
+        run: make vet CGO_ENABLED=1 GO_MEDIA_PREFIX=/opt/go-media
 
       - name: Run tests with the race detector
-        working-directory: go-metadata
-        run: make test-race CGO_ENABLED=1 GO_MEDIA_PREFIX=${{ github.workspace }}/go-media/build/install
+        run: make test-race CGO_ENABLED=1 GO_MEDIA_PREFIX=/opt/go-media
