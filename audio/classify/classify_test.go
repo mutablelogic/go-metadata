@@ -128,3 +128,16 @@ func Test_classify_002(t *testing.T) {
 		}
 	}
 }
+
+func Test_classify_003(t *testing.T) {
+	// What isn't audio isn't classified, which isn't an error
+	_, md, err := metadata.Extract(context.Background(), strings.NewReader("not audio"), metadata.WithContentType("audio/wav"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range md {
+		if m.NS() == "audio" && m.Key() == "class" {
+			t.Errorf("expected no class, got %v", m)
+		}
+	}
+}
