@@ -70,15 +70,14 @@ var (
 // LIFECYCLE
 
 func init() {
-	// The class of audio, when it's asked for (see metadata.WithClassifyAudio),
-	// which runs after the handler of audio, for whether it's protected with
-	// DRM, and its tags, and the hint of its transcription, when it's speech,
-	// in place of the handler of audio's, which is from its tags alone
+	// The class of audio, which runs after the handler of audio, for whether
+	// it's protected with DRM, and its tags, and the hint of its
+	// transcription, when it's speech, in place of the handler of audio's,
+	// which is from its tags alone
 	metadata.AddHandlerAfter(reContentType, "classify", []string{Namespace}, func(ctx context.Context, r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
-		// Audio is only classified when it's asked for, as it's decoded. A
-		// playlist, which is text, isn't audio, and audio protected with DRM
-		// can't be decoded
-		if !o.ClassifyAudio() || playlist.ContentTypes.MatchString(o.ContentType()) {
+		// A playlist, which is text, isn't audio, and audio protected with
+		// DRM can't be decoded
+		if playlist.ContentTypes.MatchString(o.ContentType()) {
 			return nil, nil
 		} else if drm := o.Get(Namespace, "drm"); drm != nil && drm.Any() == true {
 			return nil, nil

@@ -173,7 +173,7 @@ func init() {
 		drm := slices.ContainsFunc(streams, func(m metadata.Metadata) bool {
 			return m.NS() == AudioNamespace && m.Key() == "drm" && m.Any() == true
 		})
-		classified := o.ClassifyAudio() && classify.Enabled
+		classified := classify.Enabled
 		hints := audioHints(entries, len(rd.Metadata(gomedia.MetaArtwork)) > 0, drm, classified)
 		return append(append(append(result, streams...), kind...), metadata.HintMetadata(hints...)...), nil
 	}, AudioNamespace, MusicBrainzNamespace, AcoustIDNamespace, dc.Namespace, metadata.MetadataNamespace)
