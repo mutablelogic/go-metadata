@@ -91,6 +91,13 @@ or with `go` itself, with `PKG_CONFIG_PATH` set to its `build/install/lib/pkgcon
 classify and fingerprint audio. `make ffmpeg chromaprint libexif libraw libheif libfvad` in go-media builds
 the libraries which go-metadata uses.
 
+Each go-media release also has these libraries built already: as Docker images to build in, such
+as `ghcr.io/mutablelogic/go-media:v1.11.4-lgpl-dev`, which go-metadata's CI tests in, and as
+archives for Linux and Windows, to unpack and set `GO_MEDIA_PREFIX` to. Use the release of the
+go-media version in `go.mod`, as its bindings are for its versions of the libraries. The image
+doesn't have the types of files by their extensions, which content types are detected with, so
+install `media-types` and `shared-mime-info` in it.
+
 **Windows** (with [MSYS2](https://www.msys2.org/), in its UCRT64 environment, which provides
 the C compiler too):
 
