@@ -63,9 +63,11 @@ func init() {
 		} else if drm := o.Get(Namespace, "drm"); drm != nil && drm.Any() == true {
 			return nil, nil
 		}
+		// Audio which can't be decoded isn't classified, which isn't an
+		// error, as the handler of audio notes it can't be read
 		durations, err := decode(ctx, r)
 		if err != nil {
-			return nil, err
+			return nil, ctx.Err()
 		}
 		return classify(durations), nil
 	}, Namespace)

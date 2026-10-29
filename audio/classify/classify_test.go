@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	// Packages
@@ -87,5 +88,18 @@ func Test_classify_001(t *testing.T) {
 	}
 	if silence, ok := got["silence"].Any().(float64); !ok || silence != 1 {
 		t.Errorf("expected all silence, got %v", got["silence"])
+	}
+}
+
+func Test_classify_003(t *testing.T) {
+	// What isn't audio isn't classified, which isn't an error
+	_, md, err := metadata.Extract(context.Background(), strings.NewReader("not audio"), metadata.WithContentType("audio/wav"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range md {
+		if m.NS() == "audio" && m.Key() == "class" {
+			t.Errorf("expected no class, got %v", m)
+		}
 	}
 }
