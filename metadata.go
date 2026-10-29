@@ -636,19 +636,48 @@ func (m hintMeta) Any() any           { return []string(m) }
 
 // unreadable returns a note for each of the errors which is ErrBadParameter,
 // as a handler found the input invalid, that it can't be read, and why, as
-// metadata:note, or nil when there are none
+// metadata:note, or nil when there are none. The errors of several handlers,
+// or of one, are joined, and each is noted on its own, even when a join is
+// wrapped, so an error which isn't ErrBadParameter isn't noted with one which
+// is. An error which wraps several others, but isn't a join, such as one
+// made by Withf with its own %w, is noted whole, with what it says.
 func unreadable(err error) noteMeta {
 	if err == nil {
 		return nil
-	} else if joined, ok := err.(interface{ Unwrap() []error }); ok {
+	} else if parts := joined(err); parts != nil {
 		var notes noteMeta
-		for _, err := range joined.Unwrap() {
+		for _, err := range parts {
 			notes = append(notes, unreadable(err)...)
 		}
 		return notes
-	} else if errors.Is(err, ErrBadParameter) {
-		reason := strings.TrimPrefix(err.Error(), ErrBadParameter.Error()+": ")
-		return noteMeta{"It can't be read, so it may be damaged or incomplete: " + reason}
+	} else if !errors.Is(err, ErrBadParameter) {
+		return nil
+	}
+	reason := strings.TrimPrefix(err.Error(), ErrBadParameter.Error()+": ")
+	return noteMeta{"It can't be read, so it may be damaged or incomplete: " + reason}
+}
+
+// joined returns the errors which are joined, by errors.Join, in the error,
+// or wrapped by it, with one %w, or nil when there are none. A join is an
+// error which wraps several, and says only what each says, a line each.
+func joined(err error) []error {
+	for err != nil {
+		switch u := err.(type) {
+		case interface{ Unwrap() []error }:
+			parts := u.Unwrap()
+			lines := make([]string, 0, len(parts))
+			for _, part := range parts {
+				lines = append(lines, part.Error())
+			}
+			if err.Error() == strings.Join(lines, "\n") {
+				return parts
+			}
+			return nil
+		case interface{ Unwrap() error }:
+			err = u.Unwrap()
+		default:
+			return nil
+		}
 	}
 	return nil
 }

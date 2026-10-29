@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"image"
+	"fmt"
 	"io"
 	"maps"
 	"os"
@@ -336,6 +337,8 @@ var addUnreadableHandlers = sync.OnceFunc(func() {
 	AddHandler(re, "truncated", returns("truncated", ErrBadParameter.With("not a pdf document: unexpected eof")))
 	AddHandler(re, "failed", returns("failed", errA))
 	AddHandler(re, "nested", returns("nested", errors.Join(errB, ErrBadParameter.Withf("the text of the book: %s", "too deep"))))
+	AddHandler(re, "wrapped", returns("wrapped", ErrBadParameter.Withf("not an epub: %w", io.ErrUnexpectedEOF)))
+	AddHandler(re, "wrapped-join", returns("wrapped-join", fmt.Errorf("handler: %w", errors.Join(ErrBadParameter.With("truncated"), errA))))
 	AddHandler(re, "read", returns("read", nil))
 })
 
@@ -359,7 +362,12 @@ func Test_metadata_unreadable(t *testing.T) {
 		t.Fatalf("expected one metadata:note, got %v", notes)
 	}
 	slices.Sort(notes[0])
-	if want := []string{"It can't be read, so it may be damaged or incomplete: not a pdf document: unexpected eof", "It can't be read, so it may be damaged or incomplete: the text of the book: too deep"}; !slices.Equal(notes[0], want) {
+	if want := []string{
+		"It can't be read, so it may be damaged or incomplete: not a pdf document: unexpected eof",
+		"It can't be read, so it may be damaged or incomplete: not an epub: unexpected EOF",
+		"It can't be read, so it may be damaged or incomplete: the text of the book: too deep",
+		"It can't be read, so it may be damaged or incomplete: truncated",
+	}; !slices.Equal(notes[0], want) {
 		t.Fatalf("expected %v, got %v", want, notes[0])
 	}
 

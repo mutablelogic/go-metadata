@@ -334,14 +334,18 @@ func (cli *CLI) describe(ctx context.Context, r *result) error {
 	}
 	// An error along with metadata, or no handler for the content type, is
 	// a warning, which is a note in the metadata, rather than a failure,
-	// without the errors of the handlers which found the file invalid, which
-	// Extract has noted
+	// without the errors of the handlers which found the file invalid, when
+	// Extract has noted them, which it hasn't when the metadata namespace
+	// isn't returned
 	notes := make(map[string]any, 1)
 	switch {
 	case err == nil:
 	case len(meta) > 0, errors.Is(err, metadata.ErrNotImplemented):
+		noted := slices.ContainsFunc(meta, func(m metadata.Metadata) bool {
+			return m.NS() == metadata.MetadataNamespace && m.Key() == metadata.NoteKey
+		})
 		warnings := slices.DeleteFunc(strings.Split(err.Error(), "\n"), func(line string) bool {
-			return strings.HasPrefix(line, metadata.ErrBadParameter.Error()+": ")
+			return noted && strings.HasPrefix(line, metadata.ErrBadParameter.Error()+": ")
 		})
 		if len(warnings) > 0 {
 			notes[noteKey] = strings.Join(warnings, "; ")

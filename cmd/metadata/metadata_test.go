@@ -216,3 +216,29 @@ func Test_result_000(t *testing.T) {
 		t.Error("expected no single value of a list")
 	}
 }
+
+func Test_note_000(t *testing.T) {
+	// A PDF which is cut short has a note of why it can't be read, once,
+	// and when the metadata namespace isn't printed, the warning instead
+	data, err := os.ReadFile(filepath.Join("..", "..", "testfiles", "sample_with_thumbnails.pdf"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "truncated.pdf")
+	if err := os.WriteFile(path, data[:len(data)/2], 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, ns := range [][]string{nil, {"dc"}} {
+		cli := &CLI{Namespace: ns}
+		r := &result{Path: path}
+		if err := cli.describe(t.Context(), r); err != nil {
+			t.Fatal(err)
+		}
+		note, _ := r.Metadata["metadata:note"].(string)
+		if ns == nil && !strings.HasPrefix(note, "It can't be read, so it may be damaged or incomplete: ") {
+			t.Errorf("expected the note, got %q", note)
+		} else if ns != nil && !strings.HasPrefix(note, "bad parameter: ") {
+			t.Errorf("with %v, expected the warning, got %q", ns, note)
+		}
+	}
+}
