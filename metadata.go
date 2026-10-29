@@ -136,6 +136,12 @@ const (
 	// handlers which read it (see TagMetadata)
 	TagKey = "tag"
 
+	// NoteKey is the key of the notes about reading the input, in the
+	// metadata namespace, which are a list of strings: for each handler which
+	// found the input invalid, such as a PDF which is cut short, that it
+	// couldn't be read, and why. Extract returns them with the error.
+	NoteKey = "note"
+
 	// ArtworkNamespace is the namespace of images which represent a
 	// document, such as the thumbnails of its pages, which a handler
 	// returns only when it's requested, as extracting them is expensive
@@ -383,8 +389,13 @@ func Extract(parent context.Context, r io.Reader, opts ...Option) (_ string, _ [
 		results, errs = append(results, more...), errors.Join(errs, err)
 	}
 
-	// Return the content type, the metadata, and any errors
-	return contentType, o.result(r, combine(results)), errs
+	// Return the content type, the metadata, with a note of why the input
+	// couldn't be read, when a handler found it invalid, and any errors
+	meta := combine(results)
+	if notes := unreadable(errs); len(notes) > 0 {
+		meta = append(meta, notes)
+	}
+	return contentType, o.result(r, meta), errs
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -623,6 +634,54 @@ func (m hintMeta) Bytes() []byte      { return []byte(m.Value()) }
 func (m hintMeta) Image() image.Image { return nil }
 func (m hintMeta) Any() any           { return []string(m) }
 
+// unreadable returns a note for each of the errors which is ErrBadParameter,
+// as a handler found the input invalid, that it can't be read, and why, as
+// metadata:note, or nil when there are none. The errors of several handlers,
+// or of one, are joined, and each is noted on its own, even when a join is
+// wrapped, so an error which isn't ErrBadParameter isn't noted with one which
+// is. An error which wraps several others, but isn't a join, such as one
+// made by Withf with its own %w, is noted whole, with what it says.
+func unreadable(err error) noteMeta {
+	if err == nil {
+		return nil
+	} else if parts := joined(err); parts != nil {
+		var notes noteMeta
+		for _, err := range parts {
+			notes = append(notes, unreadable(err)...)
+		}
+		return notes
+	} else if !errors.Is(err, ErrBadParameter) {
+		return nil
+	}
+	reason := strings.TrimPrefix(err.Error(), ErrBadParameter.Error()+": ")
+	return noteMeta{"It can't be read, so it may be damaged or incomplete: " + reason}
+}
+
+// joined returns the errors which are joined, by errors.Join, in the error,
+// or wrapped by it, with one %w, or nil when there are none. A join is an
+// error which wraps several, and says only what each says, a line each.
+func joined(err error) []error {
+	for err != nil {
+		switch u := err.(type) {
+		case interface{ Unwrap() []error }:
+			parts := u.Unwrap()
+			lines := make([]string, 0, len(parts))
+			for _, part := range parts {
+				lines = append(lines, part.Error())
+			}
+			if err.Error() == strings.Join(lines, "\n") {
+				return parts
+			}
+			return nil
+		case interface{ Unwrap() error }:
+			err = u.Unwrap()
+		default:
+			return nil
+		}
+	}
+	return nil
+}
+
 // tagMeta is the tags of an input, as metadata:tag
 type tagMeta []string
 
@@ -632,6 +691,16 @@ func (m tagMeta) Value() string      { return strings.Join(m, ",") }
 func (m tagMeta) Bytes() []byte      { return []byte(m.Value()) }
 func (m tagMeta) Image() image.Image { return nil }
 func (m tagMeta) Any() any           { return []string(m) }
+
+// noteMeta is the notes about reading an input, as metadata:note
+type noteMeta []string
+
+func (m noteMeta) NS() string         { return MetadataNamespace }
+func (m noteMeta) Key() string        { return NoteKey }
+func (m noteMeta) Value() string      { return strings.Join(m, "\n") }
+func (m noteMeta) Bytes() []byte      { return []byte(m.Value()) }
+func (m noteMeta) Image() image.Image { return nil }
+func (m noteMeta) Any() any           { return []string(m) }
 
 type valueMeta struct {
 	ns, key, value string

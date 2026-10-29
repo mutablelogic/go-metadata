@@ -102,8 +102,9 @@ const (
 	exitInterrupted = 130
 
 	// noteKey is the key of the metadata which is a warning, from an error
-	// returned along with metadata
-	noteKey = "metadata:note"
+	// returned along with metadata, which Extract also notes when a handler
+	// found the file invalid
+	noteKey = metadata.MetadataNamespace + ":" + metadata.NoteKey
 
 	// The keys of the content of a file as Markdown, the offset it starts
 	// at, the offset of the next part, when there's more, and the note of
@@ -332,12 +333,23 @@ func (cli *CLI) describe(ctx context.Context, r *result) error {
 		}
 	}
 	// An error along with metadata, or no handler for the content type, is
-	// a warning, which is a note in the metadata, rather than a failure
+	// a warning, which is a note in the metadata, rather than a failure,
+	// without the errors of the handlers which found the file invalid, when
+	// Extract has noted them, which it hasn't when the metadata namespace
+	// isn't returned
 	notes := make(map[string]any, 1)
 	switch {
 	case err == nil:
 	case len(meta) > 0, errors.Is(err, metadata.ErrNotImplemented):
-		notes[noteKey] = strings.Join(strings.Split(err.Error(), "\n"), "; ")
+		noted := slices.ContainsFunc(meta, func(m metadata.Metadata) bool {
+			return m.NS() == metadata.MetadataNamespace && m.Key() == metadata.NoteKey
+		})
+		warnings := slices.DeleteFunc(strings.Split(err.Error(), "\n"), func(line string) bool {
+			return noted && strings.HasPrefix(line, metadata.ErrBadParameter.Error()+": ")
+		})
+		if len(warnings) > 0 {
+			notes[noteKey] = strings.Join(warnings, "; ")
+		}
 	default:
 		return err
 	}
