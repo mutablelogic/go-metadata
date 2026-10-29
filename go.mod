@@ -12,7 +12,7 @@ require (
 	github.com/charmbracelet/x/term v0.2.2
 	github.com/giraffesyo/pdf v0.8.0
 	github.com/mutablelogic/go-client v1.4.10
-	github.com/mutablelogic/go-media v1.11.1
+	github.com/mutablelogic/go-media v1.11.2
 	github.com/mutablelogic/go-server v1.7.16
 	github.com/mutablelogic/go-tokenizer v0.0.3
 	github.com/oov/psd v0.0.0-20260818185439-a5d50ec0acac

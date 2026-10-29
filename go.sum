@@ -147,8 +147,8 @@ github.com/muesli/termenv v0.16.0 h1:S5AlUN9dENB57rsbnkPyfdGuWIlkmzJjbFf0Tf5FWUc
 github.com/muesli/termenv v0.16.0/go.mod h1:ZRfOIKPFDYQoDFF4Olj7/QJbW60Ol/kL1pU3VfY/Cnk=
 github.com/mutablelogic/go-client v1.4.10 h1:Jb+H9QWiAEIieMzl/WcsPfwnZgT3nTRVOwOd7+sN0Z8=
 github.com/mutablelogic/go-client v1.4.10/go.mod h1:g8c6RlvIC0wC5rpoqtqk7eznBxormwrxArxH9I5rNRQ=
-github.com/mutablelogic/go-media v1.11.1 h1:xl2J1v4EF12N7xXA2R8c0vhl6ywy0BLwfOgIAg42Q0o=
-github.com/mutablelogic/go-media v1.11.1/go.mod h1:YsHBSCO3JV782+JNDmn1nyLgm5r2BSi1J2/kbHxJtKI=
+github.com/mutablelogic/go-media v1.11.2 h1:gF8KXSF8uwo+1eORw21AUbG2qHXfLHxY02aLJToZP7U=
+github.com/mutablelogic/go-media v1.11.2/go.mod h1:YsHBSCO3JV782+JNDmn1nyLgm5r2BSi1J2/kbHxJtKI=
 github.com/mutablelogic/go-pg v1.4.4 h1:Rc1QZtyF5HkzMkIvrz9eQOs9kL1YMhR0kz+co8CIHZQ=
 github.com/mutablelogic/go-pg v1.4.4/go.mod h1:6Lh789bDdPwbjdppKJ5MzyNOshxKLNjOOIiaV2X0G7s=
 github.com/mutablelogic/go-server v1.7.16 h1:I3eNiERtbNZqqfwo1qPsl5NRmYKBpQmLjImCHFT7eTA=

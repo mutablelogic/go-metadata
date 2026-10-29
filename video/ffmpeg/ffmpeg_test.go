@@ -4,8 +4,10 @@ package ffmpeg_test
 
 import (
 	"context"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -65,19 +67,29 @@ func Test_ffmpeg_000(t *testing.T) {
 
 func Test_ffmpeg_001(t *testing.T) {
 	// The cover art of a video is its artwork, the first as artwork:cover,
-	// and the others numbered, and a video without any has none
+	// and the others numbered, and so is the frame which best represents it,
+	// as artwork:thumbnail, which a video of one scene has only one of
 	for name, want := range map[string][]string{
-		"sample_with_artwork.mp4":       {"artwork:cover"},
-		"sample_with_multi_artwork.mp4": {"artwork:cover", "artwork:cover-2"},
-		"sample.mp4":                    nil,
+		"sample_with_artwork.mp4":       {"artwork:cover", "artwork:thumbnail"},
+		"sample_with_multi_artwork.mp4": {"artwork:cover", "artwork:cover-2", "artwork:thumbnail"},
+		"sample.mp4":                    {"artwork:thumbnail"},
 	} {
 		got := videoMeta(t, name, metadata.WithNamespace(metadata.ArtworkNamespace))
-		if len(got) != len(want) {
-			t.Errorf("%s: expected %v, got %v", name, want, got)
+		keys := slices.Sorted(maps.Keys(got))
+		if !slices.Equal(keys, want) {
+			t.Errorf("%s: expected %v, got %v", name, want, keys)
 		}
 		for _, key := range want {
 			if m := got[key]; m == nil || m.Image() == nil {
 				t.Errorf("%s: expected the image %s", name, key)
+			}
+		}
+
+		// The thumbnail is downscaled to fit the largest image dimension,
+		// keeping the video's aspect ratio
+		if m := got["artwork:thumbnail"]; m != nil && m.Image() != nil {
+			if bounds := m.Image().Bounds(); bounds.Dx() != 1024 || bounds.Dy() != 576 {
+				t.Errorf("%s: expected a 1024x576 thumbnail, got %v", name, bounds)
 			}
 		}
 	}
