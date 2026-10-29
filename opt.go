@@ -59,6 +59,10 @@ type Opts struct {
 	// it isn't looked up
 	acoustid *acoustid.Client
 
+	// Whether audio is classified as speech, music, silence or other sound,
+	// which a handler of audio does when it's built with libfvad
+	classifyAudio bool
+
 	// Add OTEL tracing
 	tracer trace.Tracer
 
@@ -205,6 +209,19 @@ func WithTMDB(client *tmdb.Client) Option {
 	}
 }
 
+// Classify audio as speech, music, silence or other sound, from up to its
+// first 10 minutes, as audio:class, with the fractions of it which are
+// speech, music and silence, as audio:speech, audio:music and audio:silence.
+// It decodes the audio, which takes about a second for each 8 minutes of it,
+// so it's only done when set, and when built with cgo and libfvad (see the
+// classify package).
+func WithClassifyAudio() Option {
+	return func(o *Opts) error {
+		o.classifyAudio = true
+		return nil
+	}
+}
+
 // Set the client of AcoustID, which a handler of audio uses to look up the
 // AcoustID identifier of a recording which doesn't have one in its tags,
 // from its fingerprint, which is from its tags, or else from its audio,
@@ -338,6 +355,12 @@ func (o *Opts) TMDB() *tmdb.Client {
 // it wasn't set, when audio isn't looked up
 func (o *Opts) AcoustID() *acoustid.Client {
 	return o.acoustid
+}
+
+// ClassifyAudio reports whether audio is classified, set via
+// WithClassifyAudio
+func (o *Opts) ClassifyAudio() bool {
+	return o.classifyAudio
 }
 
 // TMDBMovie returns the identifier of the movie on TMDB set via

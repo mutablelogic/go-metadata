@@ -55,6 +55,7 @@ type CLI struct {
 	Password    string   `name:"password" env:"METADATA_PASSWORD" help:"The password of encrypted documents, such as PDF documents which need a password to be opened. Set it in the environment, rather than as a flag, to keep it out of the shell's history."`
 	TMDBKey     string   `name:"tmdb-key" env:"TMDB_TOKEN" help:"The API Read Access Token of TMDB, with which videos are looked up on TMDB, from their names. Set it in the environment, rather than as a flag, to keep it out of the shell's history."`
 	AcoustIDKey string   `name:"acoustid-key" env:"CHROMAPRINT_KEY" help:"The application API key of AcoustID, with which audio without an AcoustID identifier in its tags is looked up on AcoustID, from its fingerprint, when it's built with Chromaprint."`
+	Classify    bool     `name:"classify" default:"true" negatable:"" help:"Classify audio as speech, music, silence or other sound, from up to its first 10 minutes, as audio:class, when it's built with libfvad. It decodes the audio, which takes about a second for each 8 minutes of it, so --no-classify reads audio faster."`
 	Range       string   `name:"range" placeholder:"FROM:TO" help:"With --markdown, print only the bytes of the Markdown from:to, such as 0:4096, and then 4096:8192, or from:, :to, or : for all of it. By default, it's all of it."`
 	Path        string   `arg:"" name:"path" help:"File, directory, or glob pattern such as 'photos/**/*.jpg' (quoted, so the shell doesn't expand it), of the files to read."`
 
@@ -316,6 +317,9 @@ func (cli *CLI) describe(ctx context.Context, r *result) error {
 	}
 	if cli.acoustid != nil {
 		opts = append(opts, metadata.WithAcoustID(cli.acoustid))
+	}
+	if cli.Classify {
+		opts = append(opts, metadata.WithClassifyAudio())
 	}
 	switch {
 	case cli.Artwork:

@@ -227,10 +227,10 @@ The LGPL license for Chromaprint is available at:
 --------------------------------------------------------------------------------
 
 libfvad (<https://github.com/dpirch/libfvad>), the WebRTC voice activity
-detector as a standalone library, which go-media's segmenter decodes audio
-with, when built with the chromaprint tag, is licensed under the BSD 3-clause
-license, with an additional grant of patent rights from Google in its PATENTS
-file.
+detector as a standalone library, which go-media's segmenter classifies and
+decodes audio with, when built with the libfvad tag, is licensed under the BSD
+3-clause license, with an additional grant of patent rights from Google in its
+PATENTS file.
 
 libfvad Copyright Notice:
   Copyright (c) 2011, The WebRTC project authors. All rights reserved.

@@ -30,6 +30,7 @@ libraries, through cgo:
 | EXIF metadata of photos (`image/exif`) | libexif |
 | HEIF and AVIF images (`image/heif`) | libheif |
 | Camera RAW images (`image/raw`) | LibRaw |
+| Classes of audio: speech, music or silence (`audio/classify`) | libfvad, which is optional |
 | Fingerprints of audio, to look it up on AcoustID (`pkg/chromaprint`) | Chromaprint and libfvad, which are optional |
 
 FFmpeg needs to be FFmpeg 8, which go-media's bindings are for: FFmpeg 9 removed parts of its
@@ -38,9 +39,12 @@ compiler, go-metadata builds without them. It still reads everything else, but r
 metadata or artwork from audio and video files, no EXIF metadata from photos, and nothing from
 HEIF and RAW images other than their type and kind.
 
-Chromaprint is only built with the `chromaprint` build tag, which the Makefile sets when it finds
-it and libfvad, which go-media's segmenter decodes the audio with. Without it, audio is only looked up on AcoustID by the AcoustID identifier in its tags.
-Homebrew's `chromaprint` is built with FFmpeg 9, so to fingerprint audio on macOS, build
+libfvad, the WebRTC voice activity detector, which go-media's segmenter classifies and decodes
+audio with, is only built with the `libfvad` build tag, which the Makefile sets when it finds
+it. Without it, audio isn't classified. Chromaprint is only built with the `chromaprint` build
+tag, which the Makefile sets when it finds it and libfvad. Without it, audio is only looked up
+on AcoustID by the AcoustID identifier in its tags. Neither Homebrew nor Debian has libfvad, and
+Homebrew's `chromaprint` is built with FFmpeg 9, so to classify or fingerprint audio, build
 go-media's libraries, and set `GO_MEDIA_PREFIX` (see below).
 
 The C libraries are found with `pkg-config`, so to build with cgo, install them, their
@@ -83,8 +87,8 @@ Many Linux distributions ship a version of FFmpeg other than 8. If yours does,
 bindings, can build FFmpeg 8 and the other libraries from source, as static libraries: run
 `make` in a clone of it, and then build go-metadata with `make GO_MEDIA_PREFIX=<go-media>/build/install`,
 or with `go` itself, with `PKG_CONFIG_PATH` set to its `build/install/lib/pkgconfig` folder,
-`CGO_LDFLAGS_ALLOW="-(W|D).*"` and `CGO_LDFLAGS="-lstdc++"`, and `-tags chromaprint` to
-fingerprint audio. `make ffmpeg chromaprint libexif libraw libheif libfvad` in go-media builds
+`CGO_LDFLAGS_ALLOW="-(W|D).*"` and `CGO_LDFLAGS="-lstdc++"`, and `-tags libfvad,chromaprint` to
+classify and fingerprint audio. `make ffmpeg chromaprint libexif libraw libheif libfvad` in go-media builds
 the libraries which go-metadata uses.
 
 **Windows** (with [MSYS2](https://www.msys2.org/), in its UCRT64 environment, which provides
@@ -168,8 +172,11 @@ variable. To look up the movie or TV episode which a video is on TMDB, set `--tm
 `TMDB_TOKEN` environment variable, to your TMDB API Read Access Token. To look up the
 MusicBrainz recording and artists of audio on AcoustID, set `--acoustid-key`, or the
 `CHROMAPRINT_KEY` environment variable, to the API key of an application which is
-[registered with AcoustID](https://acoustid.org/new-application). `metadata --help` lists every
-flag.
+[registered with AcoustID](https://acoustid.org/new-application). Audio is classified as speech,
+music, silence or other sound, as `audio:class`, with the fractions which are speech, music and
+silence, as `audio:speech`, `audio:music` and `audio:silence`, from up to its first 10 minutes.
+That decodes it, which takes about a second for each 8 minutes of audio, so `--no-classify`
+reads audio faster. `metadata --help` lists every flag.
 
 ## Using the library
 
@@ -262,6 +269,7 @@ Options change what's extracted:
 | `WithMaxSize(bytes)` | The largest input which is read |
 | `WithTMDB(client)` | Look up videos on TMDB, with a client from `pkg/tmdb` |
 | `WithAcoustID(client)` | Look up audio on AcoustID, with a client from `pkg/acoustid` |
+| `WithClassifyAudio()` | Classify audio as speech, music, silence or other sound, as `audio:class`, which decodes it, so isn't done otherwise |
 | `WithTracer(tracer)` | Trace extraction with OpenTelemetry |
 
 A handler of another type of file is a function which is registered with `AddHandler`, for a
@@ -304,7 +312,7 @@ of the C libraries they link to:
 | [libheif](https://github.com/strukturag/libheif) | HEIF and AVIF images | LGPL 3.0 |
 | [LibRaw](https://www.libraw.org/) | Camera RAW images | LGPL 2.1 or CDDL 1.0, with bundled code under BSD and MIT licenses |
 | [Chromaprint](https://acoustid.org/chromaprint) | Fingerprints of audio, with the `chromaprint` tag | LGPL 2.1, as it includes parts of FFmpeg; its own code is MIT |
-| [libfvad](https://github.com/dpirch/libfvad) | Decoding audio to fingerprint it, with the `chromaprint` tag | BSD 3-clause, with a grant of patent rights |
+| [libfvad](https://github.com/dpirch/libfvad) | Classifying audio, with the `libfvad` tag, and decoding it to fingerprint it | BSD 3-clause, with a grant of patent rights |
 
 **Requirements when distributing binaries which include the LGPL libraries:**
 
@@ -338,7 +346,7 @@ module with its version.
 
 | Module | Used for | Licence |
 | --- | --- | --- |
-| [`github.com/mutablelogic/go-media`](https://github.com/mutablelogic/go-media) | The C bindings of FFmpeg, libexif, libheif, LibRaw, Chromaprint and libfvad, and the segmenter which decodes audio to fingerprint it | Apache 2.0 |
+| [`github.com/mutablelogic/go-media`](https://github.com/mutablelogic/go-media) | The C bindings of FFmpeg, libexif, libheif, LibRaw, Chromaprint and libfvad, and the segmenter which classifies audio and decodes it to fingerprint it | Apache 2.0 |
 | [`github.com/mutablelogic/go-client`](https://github.com/mutablelogic/go-client) | The TMDB and AcoustID clients | Apache 2.0 |
 | [`github.com/mutablelogic/go-server`](https://github.com/mutablelogic/go-server) | Errors and types | Apache 2.0 |
 | [`github.com/mutablelogic/go-tokenizer`](https://github.com/mutablelogic/go-tokenizer) | Markdown documents | Apache 2.0 |
