@@ -17,15 +17,15 @@ import (
 	_ "github.com/mutablelogic/go-metadata/audio/ffmpeg"
 )
 
-// classOf returns the audio metadata of a file, by key, with the options
-func classOf(t *testing.T, path, contentType string, opts ...metadata.Option) map[string]metadata.Metadata {
+// classOf returns the audio metadata of a file, by key
+func classOf(t *testing.T, path, contentType string) map[string]metadata.Metadata {
 	t.Helper()
 	f, err := os.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer f.Close()
-	_, md, err := metadata.Extract(context.Background(), f, append(opts, metadata.WithContentType(contentType))...)
+	_, md, err := metadata.Extract(context.Background(), f, metadata.WithContentType(contentType))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func writeSilence(t *testing.T, seconds int) string {
 
 func Test_classify_000(t *testing.T) {
 	// A speech, with pauses
-	got := classOf(t, "../../testfiles/jfk.wav", "audio/wav", metadata.WithClassifyAudio())
+	got := classOf(t, "../../testfiles/jfk.wav", "audio/wav")
 	if got["class"] == nil || got["class"].Value() != "speech" {
 		t.Fatalf("expected speech, got %v", got["class"])
 	}
@@ -81,24 +81,11 @@ func Test_classify_000(t *testing.T) {
 
 func Test_classify_001(t *testing.T) {
 	// Silence
-	got := classOf(t, writeSilence(t, 3), "audio/wav", metadata.WithClassifyAudio())
+	got := classOf(t, writeSilence(t, 3), "audio/wav")
 	if got["class"] == nil || got["class"].Value() != "silence" {
 		t.Fatalf("expected silence, got %v", got["class"])
 	}
 	if silence, ok := got["silence"].Any().(float64); !ok || silence != 1 {
 		t.Errorf("expected all silence, got %v", got["silence"])
-	}
-}
-
-func Test_classify_002(t *testing.T) {
-	// Audio isn't classified unless it's asked for
-	got := classOf(t, "../../testfiles/jfk.wav", "audio/wav")
-	for _, key := range []string{"class", "speech", "music", "silence"} {
-		if got[key] != nil {
-			t.Errorf("%s: expected nothing, got %v", key, got[key])
-		}
-	}
-	if got["duration"] == nil {
-		t.Error("expected the audio to be read")
 	}
 }
