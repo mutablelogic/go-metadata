@@ -97,11 +97,17 @@ FFMPEG_WRONG := $(if $(PKG_CONFIG),$(shell $(PKGCONF) --exists libavformat && ! 
 CGO_ENABLED ?= $(if $(CGO_MISSING)$(CGO_OLD)$(FFMPEG_WRONG),0,1)
 export CGO_ENABLED
 
+# libfvad, the WebRTC voice activity detector, which go-media's segmenter
+# decodes and classifies audio with, is optional: with cgo, and when it's
+# found, it's built with the libfvad tag, so audio is classified as speech,
+# music or silence, or else it isn't
+LIBFVAD := $(if $(filter 1,$(CGO_ENABLED)),$(if $(PKG_CONFIG),$(shell $(PKGCONF) --exists libfvad && echo yes)))
+
 # Chromaprint, for the fingerprints of audio, which are looked up on AcoustID,
-# is optional: with cgo, and when it's found, it's built with the chromaprint
-# tag, or else audio isn't looked up on AcoustID
-CHROMAPRINT := $(if $(filter 1,$(CGO_ENABLED)),$(if $(PKG_CONFIG),$(shell $(PKGCONF) --exists libchromaprint && echo yes)))
-GO_TAGS ?= $(if $(CHROMAPRINT),chromaprint)
+# is optional: with cgo, and when it's found, with libfvad, it's built with the
+# chromaprint tag, or else audio isn't looked up on AcoustID
+CHROMAPRINT := $(if $(LIBFVAD),$(shell $(PKGCONF) --exists libchromaprint && echo yes))
+GO_TAGS ?= $(if $(LIBFVAD),libfvad)$(if $(CHROMAPRINT),$(comma)chromaprint)
 GO_TAGS_FLAG := $(if $(GO_TAGS),-tags "$(GO_TAGS)")
 
 # What isn't read without cgo
@@ -198,7 +204,8 @@ deps: go-dep
 	@$(if $(CGO_MISSING),echo "Not found: $(CGO_MISSING)")
 	@$(if $(CGO_OLD),echo "Too old: $(CGO_OLD)")
 	@echo "CGO_ENABLED=$(CGO_ENABLED)"
-	@echo "Chromaprint: $(if $(CHROMAPRINT),$(shell $(PKGCONF) --modversion libchromaprint) (-tags chromaprint),not found$(comma) so audio isn't looked up on AcoustID)"
+	@echo "libfvad: $(if $(LIBFVAD),found (-tags libfvad),not found$(comma) so audio isn't classified)"
+	@echo "Chromaprint: $(if $(CHROMAPRINT),$(shell $(PKGCONF) --modversion libchromaprint) (-tags chromaprint),not found with libfvad$(comma) so audio isn't looked up on AcoustID)"
 	@$(if $(filter 0,$(CGO_ENABLED)),echo "$(NOCGO_NOTE)")
 
 # Check the code with go vet

@@ -92,10 +92,10 @@ jobs:
           path: go-media
 
       # FFmpeg 8, libexif, LibRaw and libheif, which go-metadata uses, and
-      # Chromaprint, for audio fingerprinting
+      # Chromaprint and libfvad, for audio fingerprinting
       - name: Build go-media's libraries
         if: steps.cache.outputs.cache-hit != 'true'
-        run: make -C go-media ffmpeg chromaprint libexif libraw libheif
+        run: make -C go-media ffmpeg chromaprint libexif libraw libheif libfvad
 
       - name: Save go-media's libraries
         if: steps.cache.outputs.cache-hit != 'true'
