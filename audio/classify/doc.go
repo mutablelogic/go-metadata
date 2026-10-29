@@ -4,7 +4,8 @@
 // the WebRTC voice activity detector. It returns the class as audio:class,
 // and the fractions of the audio which are speech, music and silence, from
 // 0 to 1, as audio:speech, audio:music and audio:silence. Audio which is
-// protected with DRM can't be decoded, so isn't classified. It decodes the
+// protected with DRM can't be decoded, so isn't classified, and nor is audio
+// with a MusicBrainz release type, as it's a known release. It decodes the
 // audio, which takes about a second for each 8 minutes of it, so it's only
 // done when the audio namespace is requested.
 //

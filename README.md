@@ -175,7 +175,7 @@ MusicBrainz recording and artists of audio on AcoustID, set `--acoustid-key`, or
 [registered with AcoustID](https://acoustid.org/new-application). Audio is classified as speech,
 music, silence or other sound, as `audio:class`, with the fractions which are speech, music and
 silence, as `audio:speech`, `audio:music` and `audio:silence`, from up to its first 10 minutes,
-when it's built with libfvad. That decodes it, which takes about a second for each 8 minutes of
+when it's built with libfvad, unless it has a MusicBrainz release type, as it's a known release. That decodes it, which takes about a second for each 8 minutes of
 audio. `metadata --help` lists every flag.
 
 ## Using the library
