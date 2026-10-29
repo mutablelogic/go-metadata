@@ -22,9 +22,19 @@ const (
 	// to be music, which may be speech, which can be transcribed
 	HintTranscription = "transcription"
 
-	// HintCollection is a hint that the input is part of a collection, such
-	// as a track of an album, or an episode of a show
-	HintCollection = "collection"
+	// The hints that the input is a track of a release, such as a song, by
+	// the primary type of the release, as MusicBrainz defines it, which can
+	// be grouped with the release's other tracks. A track with an album's
+	// name, and no release type, is a track of an album
+	HintAlbum     = "album"
+	HintSingle    = "single"
+	HintEP        = "ep"
+	HintBroadcast = "broadcast"
+	HintOther     = "other"
+
+	// HintTV is a hint that the input is an episode of a TV show, which can
+	// be grouped with the show's other episodes
+	HintTV = "tv"
 
 	// HintEvent is a hint that the input has events, such as a calendar's,
 	// with when they are, which can be indexed by time

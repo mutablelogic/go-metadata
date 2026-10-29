@@ -7,6 +7,8 @@ import (
 	"encoding/binary"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 
 	// Packages
@@ -100,5 +102,47 @@ func Test_classify_002(t *testing.T) {
 	}
 	if got["duration"] == nil {
 		t.Error("expected the audio to be read")
+	}
+}
+
+// hintsOf returns the hints of a file, with the options
+func hintsOf(t *testing.T, path, contentType string, opts ...metadata.Option) []string {
+	t.Helper()
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	_, md, err := metadata.Extract(context.Background(), f, append(opts, metadata.WithContentType(contentType))...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range md {
+		if m.NS() == metadata.MetadataNamespace && m.Key() == metadata.HintKey {
+			return strings.Split(m.Value(), ",")
+		}
+	}
+	return nil
+}
+
+func Test_classify_003(t *testing.T) {
+	// Speech which is classified is transcribed, and silence isn't, and
+	// audio which isn't classified is transcribed when it isn't tagged as
+	// a recording
+	for _, test := range []struct {
+		name string
+		path string
+		opts []metadata.Option
+		want bool
+	}{
+		{"speech", "../../testfiles/jfk.wav", []metadata.Option{metadata.WithClassifyAudio()}, true},
+		{"silence", writeSilence(t, 3), []metadata.Option{metadata.WithClassifyAudio()}, false},
+		{"not classified", "../../testfiles/jfk.wav", nil, true},
+		{"silence, not classified", writeSilence(t, 3), nil, true},
+	} {
+		hints := hintsOf(t, test.path, "audio/wav", test.opts...)
+		if got := slices.Contains(hints, metadata.HintTranscription); got != test.want {
+			t.Errorf("%s: expected transcription %v, got hints %q", test.name, test.want, hints)
+		}
 	}
 }

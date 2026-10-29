@@ -237,8 +237,9 @@ the handlers which read it found, so an indexer knows what's worth the work:
 | `markdown` | It has content which can be read as Markdown, such as a document's text, to index |
 | `artwork` | It has artwork which can be extracted, such as a cover, a thumbnail, or a video's frames |
 | `ocr` | It has pages which are images, such as a scanned PDF, whose text can be recognised |
-| `transcription` | It's audio without MusicBrainz or AcoustID tags, which may be speech |
-| `collection` | It's part of a collection: a track with an album, or an episode of a show |
+| `transcription` | It's audio which is speech, when it's classified, or else audio without MusicBrainz or AcoustID tags, which may be speech, and not when it's protected with DRM |
+| `album`, `single`, `ep`, `broadcast`, `other` | It's a track of a release, by the primary type of its MusicBrainz release type, or of an album, when it has an album's name and no release type |
+| `tv` | It's an episode of a TV show, by its tags, its name, such as `Show.S01E02.mkv`, or TMDB |
 | `event` | It has events, such as a calendar's, a contact's birthday, or an invitation |
 | `geo` | It has places, such as where a photo was taken, a contact's address, or GeoJSON |
 
