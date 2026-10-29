@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	// Packages
@@ -17,15 +18,15 @@ import (
 	_ "github.com/mutablelogic/go-metadata/audio/ffmpeg"
 )
 
-// classOf returns the audio metadata of a file, by key, with the options
-func classOf(t *testing.T, path, contentType string, opts ...metadata.Option) map[string]metadata.Metadata {
+// classOf returns the audio metadata of a file, by key
+func classOf(t *testing.T, path, contentType string) map[string]metadata.Metadata {
 	t.Helper()
 	f, err := os.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer f.Close()
-	_, md, err := metadata.Extract(context.Background(), f, append(opts, metadata.WithContentType(contentType))...)
+	_, md, err := metadata.Extract(context.Background(), f, metadata.WithContentType(contentType))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +68,7 @@ func writeSilence(t *testing.T, seconds int) string {
 
 func Test_classify_000(t *testing.T) {
 	// A speech, with pauses
-	got := classOf(t, "../../testfiles/jfk.wav", "audio/wav", metadata.WithClassifyAudio())
+	got := classOf(t, "../../testfiles/jfk.wav", "audio/wav")
 	if got["class"] == nil || got["class"].Value() != "speech" {
 		t.Fatalf("expected speech, got %v", got["class"])
 	}
@@ -81,7 +82,7 @@ func Test_classify_000(t *testing.T) {
 
 func Test_classify_001(t *testing.T) {
 	// Silence
-	got := classOf(t, writeSilence(t, 3), "audio/wav", metadata.WithClassifyAudio())
+	got := classOf(t, writeSilence(t, 3), "audio/wav")
 	if got["class"] == nil || got["class"].Value() != "silence" {
 		t.Fatalf("expected silence, got %v", got["class"])
 	}
@@ -90,13 +91,52 @@ func Test_classify_001(t *testing.T) {
 	}
 }
 
-func Test_classify_002(t *testing.T) {
-	// Audio isn't classified unless it's asked for
-	got := classOf(t, "../../testfiles/jfk.wav", "audio/wav")
-	for _, key := range []string{"class", "speech", "music", "silence"} {
-		if got[key] != nil {
-			t.Errorf("%s: expected nothing, got %v", key, got[key])
+func Test_classify_003(t *testing.T) {
+	// What isn't audio isn't classified, which isn't an error
+	_, md, err := metadata.Extract(context.Background(), strings.NewReader("not audio"), metadata.WithContentType("audio/wav"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range md {
+		if m.NS() == "audio" && m.Key() == "class" {
+			t.Errorf("expected no class, got %v", m)
 		}
+	}
+}
+
+// withReleaseType writes a copy of an MP3 file with an ID3 tag of its
+// MusicBrainz release type, as a TXXX frame, as MusicBrainz Picard writes it
+func withReleaseType(t *testing.T, path, releaseType string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	frame := append([]byte{0}, []byte("MusicBrainz Album Type\x00"+releaseType)...)
+	var tag []byte
+	tag = append(tag, "TXXX"...)
+	tag = binary.BigEndian.AppendUint32(tag, uint32(len(frame)))
+	tag = append(tag, 0, 0)
+	tag = append(tag, frame...)
+	n := len(tag)
+	header := []byte{'I', 'D', '3', 3, 0, 0, byte(n >> 21 & 0x7f), byte(n >> 14 & 0x7f), byte(n >> 7 & 0x7f), byte(n & 0x7f)}
+	result := filepath.Join(t.TempDir(), "tagged.mp3")
+	if err := os.WriteFile(result, append(append(header, tag...), data...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return result
+}
+
+func Test_classify_004(t *testing.T) {
+	// Audio with a MusicBrainz release type isn't classified, as it's a
+	// known release, and without one it is
+	got := classOf(t, "../../testfiles/sample.mp3", "audio/mpeg")
+	if got["class"] == nil {
+		t.Fatal("expected a class")
+	}
+	got = classOf(t, withReleaseType(t, "../../testfiles/sample.mp3", "album"), "audio/mpeg")
+	if got["class"] != nil {
+		t.Errorf("expected no class, got %v", got["class"])
 	}
 	if got["duration"] == nil {
 		t.Error("expected the audio to be read")
