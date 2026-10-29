@@ -142,15 +142,16 @@ func Test_classify_003(t *testing.T) {
 	}
 }
 
-// withReleaseType writes a copy of an MP3 file with an ID3 tag of its
-// MusicBrainz release type, as a TXXX frame, as MusicBrainz Picard writes it
-func withReleaseType(t *testing.T, path, releaseType string) string {
+// withTag writes a copy of an MP3 file with an ID3 tag of a user-defined
+// text frame, TXXX, with a description and a value, as MusicBrainz Picard
+// writes its tags
+func withTag(t *testing.T, path, description, value string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	frame := append([]byte{0}, []byte("MusicBrainz Album Type\x00"+releaseType)...)
+	frame := append([]byte{0}, []byte(description+"\x00"+value)...)
 	var tag []byte
 	tag = append(tag, "TXXX"...)
 	tag = binary.BigEndian.AppendUint32(tag, uint32(len(frame)))
@@ -172,11 +173,62 @@ func Test_classify_004(t *testing.T) {
 	if got["class"] == nil {
 		t.Fatal("expected a class")
 	}
-	got = classOf(t, withReleaseType(t, "../../testfiles/sample.mp3", "album"), "audio/mpeg")
+	got = classOf(t, withTag(t, "../../testfiles/sample.mp3", "MusicBrainz Album Type", "album"), "audio/mpeg")
 	if got["class"] != nil {
 		t.Errorf("expected no class, got %v", got["class"])
 	}
 	if got["duration"] == nil {
 		t.Error("expected the audio to be read")
+	}
+}
+
+func Test_classify_005(t *testing.T) {
+	// Speech which is tagged as a recording, such as a song with prominent
+	// vocals, isn't transcribed, by each tag which identifies it, and speech
+	// with other tags is
+	for _, test := range []struct {
+		description string
+		key         string
+		want        bool
+	}{
+		{"MusicBrainz Track Id", "musicbrainz:recording-id", false},
+		{"MusicBrainz Release Track Id", "musicbrainz:track-id", false},
+		{"MusicBrainz Album Id", "musicbrainz:release-id", false},
+		{"MusicBrainz Release Group Id", "musicbrainz:release-group-id", false},
+		{"MusicBrainz Artist Id", "musicbrainz:artist-id", false},
+		{"MusicBrainz Work Id", "musicbrainz:work-id", false},
+		{"Acoustid Id", "acoustid:id", false},
+		{"MusicBrainz Album Status", "musicbrainz:release-status", true},
+		{"Mood", "audio:mood", true},
+	} {
+		path := withTag(t, "../../testfiles/sample.mp3", test.description, "c0ffee00-0000-4000-8000-000000000000")
+		f, err := os.Open(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, md, err := metadata.Extract(context.Background(), f, metadata.WithContentType("audio/mpeg"))
+		f.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var tagged, classified bool
+		var hints []string
+		for _, m := range md {
+			switch {
+			case m.NS()+":"+m.Key() == test.key:
+				tagged = true
+			case m.NS() == "audio" && m.Key() == "class":
+				classified = true
+			case m.NS() == metadata.MetadataNamespace && m.Key() == metadata.HintKey:
+				hints = strings.Split(m.Value(), ",")
+			}
+		}
+		if !tagged || !classified {
+			t.Errorf("%s: expected %s, and a class, got %v and %v", test.description, test.key, tagged, classified)
+			continue
+		}
+		if got := slices.Contains(hints, metadata.HintTranscription); got != test.want {
+			t.Errorf("%s: expected transcription %v, got hints %q", test.description, test.want, hints)
+		}
 	}
 }
