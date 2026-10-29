@@ -229,7 +229,7 @@ func tagMetadata(tags []gomedia.Metadata) []metadata.Metadata {
 // whether it has cover art: its artwork, when it has a video stream, as a
 // frame can be its thumbnail, unless it's protected with DRM, so a frame
 // can't be decoded, when it's only its cover art, its place, when it has a
-// position, and its collection, when it's an episode of a show, by its tags,
+// position, and that it's TV, when it's an episode of a show, by its tags,
 // or a name such as Show.S01E02.mkv
 func videoHints(meta []metadata.Metadata, name string, cover bool) []string {
 	var hints []string
@@ -248,7 +248,7 @@ func videoHints(meta []metadata.Metadata, name string, cover bool) []string {
 		return m.NS() == VideoNamespace && m.Key() == "show" && strings.TrimSpace(m.Value()) != ""
 	})
 	if show || (name != "" && tmdb.ExtractQuery(name).Episode > 0) {
-		hints = append(hints, metadata.HintCollection)
+		hints = append(hints, metadata.HintTV)
 	}
 	return hints
 }

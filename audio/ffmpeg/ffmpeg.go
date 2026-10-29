@@ -23,6 +23,7 @@ import (
 	reader "github.com/mutablelogic/go-media/reader"
 	ff "github.com/mutablelogic/go-media/sys/ffmpeg80"
 	metadata "github.com/mutablelogic/go-metadata"
+	classify "github.com/mutablelogic/go-metadata/audio/classify"
 	playlist "github.com/mutablelogic/go-metadata/audio/playlist"
 	dc "github.com/mutablelogic/go-metadata/dublincore"
 	meta "github.com/mutablelogic/go-metadata/internal/meta"
@@ -165,8 +166,16 @@ func init() {
 		if slices.ContainsFunc(entries, func(e entry) bool { return e.ns == MusicBrainzNamespace && e.key == recordingIDKey }) {
 			kind = metadata.KindMetadata(dc.KindRecording)
 		}
-		hints := audioHints(entries, len(rd.Metadata(gomedia.MetaArtwork)) > 0)
-		return append(append(append(result, streamMetadata(rd.Streams())...), kind...), metadata.HintMetadata(hints...)...), nil
+		// The hints, with its transcription only when it isn't protected
+		// with DRM, and it isn't classified, as the handler which classifies
+		// it hints at it instead
+		streams := streamMetadata(rd.Streams())
+		drm := slices.ContainsFunc(streams, func(m metadata.Metadata) bool {
+			return m.NS() == AudioNamespace && m.Key() == "drm" && m.Any() == true
+		})
+		classified := classify.Enabled
+		hints := audioHints(entries, len(rd.Metadata(gomedia.MetaArtwork)) > 0, drm, classified)
+		return append(append(append(result, streams...), kind...), metadata.HintMetadata(hints...)...), nil
 	}, AudioNamespace, MusicBrainzNamespace, AcoustIDNamespace, dc.Namespace, metadata.MetadataNamespace)
 }
 
@@ -174,25 +183,76 @@ func init() {
 // PRIVATE METHODS
 
 // audioHints returns the hints of audio, from its tags: its artwork, when it
-// has cover art, which is attached to it, its transcription, when it has no
-// MusicBrainz or AcoustID tags, so it isn't known to be music, and may be
-// speech, and its collection, when it has an album, by its name or its
-// MusicBrainz identifier
-func audioHints(entries []entry, cover bool) []string {
+// has cover art, which is attached to it, its transcription, unless it's
+// protected with DRM, so can't be decoded, when it's tagged as spoken word
+// (see isSpoken), or else, when it isn't classified, which decides it
+// instead, when it has no MusicBrainz or AcoustID tags, so it isn't known to
+// be music, and may be speech, and its release, by its MusicBrainz release
+// type (see releaseHint), or as an album, when it has an album's name and no
+// release type
+func audioHints(entries []entry, cover, drm, classified bool) []string {
 	var hints []string
 	if cover {
 		hints = append(hints, metadata.HintArtwork)
 	}
-	if !slices.ContainsFunc(entries, func(e entry) bool { return e.ns == MusicBrainzNamespace || e.ns == AcoustIDNamespace }) {
+	if !drm && (isSpoken(entries) || (!classified && !slices.ContainsFunc(entries, func(e entry) bool { return e.ns == MusicBrainzNamespace || e.ns == AcoustIDNamespace }))) {
 		hints = append(hints, metadata.HintTranscription)
 	}
-	if slices.ContainsFunc(entries, func(e entry) bool {
-		return (e.ns == AudioNamespace && e.key == "album" && strings.TrimSpace(fmt.Sprint(e.value)) != "") ||
-			(e.ns == MusicBrainzNamespace && (e.key == "release-id" || e.key == "release-group-id"))
+	if i := slices.IndexFunc(entries, func(e entry) bool { return e.ns == MusicBrainzNamespace && e.key == "release-type" }); i >= 0 {
+		if hint := releaseHint(fmt.Sprint(entries[i].value)); hint != "" {
+			hints = append(hints, hint)
+		}
+	} else if slices.ContainsFunc(entries, func(e entry) bool {
+		return e.ns == AudioNamespace && e.key == "album" && strings.TrimSpace(fmt.Sprint(e.value)) != ""
 	}) {
-		hints = append(hints, metadata.HintCollection)
+		hints = append(hints, metadata.HintAlbum)
 	}
 	return hints
+}
+
+// isSpoken returns true when audio is tagged as spoken word: an audiobook or
+// spoken word as any of its MusicBrainz release types, or spoken word, a
+// podcast or an audiobook as any of its genres, however they're written,
+// such as Spoken Word or audio-book
+func isSpoken(entries []entry) bool {
+	return slices.ContainsFunc(entries, func(e entry) bool {
+		var spoken []string
+		switch {
+		case e.ns == MusicBrainzNamespace && e.key == "release-type":
+			spoken = []string{"audiobook", "spokenword"}
+		case e.ns == AudioNamespace && e.key == "genre":
+			spoken = []string{"audiobook", "spokenword", "podcast"}
+		default:
+			return false
+		}
+		for _, value := range strings.FieldsFunc(fmt.Sprint(e.value), func(r rune) bool { return r == ';' || r == ',' || r == '/' }) {
+			if slices.Contains(spoken, strings.NewReplacer(" ", "", "-", "", "_", "").Replace(strings.ToLower(value))) {
+				return true
+			}
+		}
+		return false
+	})
+}
+
+// releaseHint returns the hint of a track of a release, from its
+// MusicBrainz release type, by its primary type, which is first when there's
+// a secondary type too, such as album; compilation, or an empty string when
+// it isn't one of MusicBrainz's primary types
+func releaseHint(releaseType string) string {
+	primary, _, _ := strings.Cut(strings.NewReplacer("/", ";", ",", ";").Replace(releaseType), ";")
+	switch strings.ToLower(strings.TrimSpace(primary)) {
+	case "album":
+		return metadata.HintAlbum
+	case "single":
+		return metadata.HintSingle
+	case "ep":
+		return metadata.HintEP
+	case "broadcast":
+		return metadata.HintBroadcast
+	case "other":
+		return metadata.HintOther
+	}
+	return ""
 }
 
 // tagEntries returns the tags of audio, mapped onto their keys (see

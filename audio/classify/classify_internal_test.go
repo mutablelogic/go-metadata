@@ -8,6 +8,7 @@ import (
 
 	// Packages
 	segmenter "github.com/mutablelogic/go-media/segmenter"
+	metadata "github.com/mutablelogic/go-metadata"
 )
 
 func Test_classify_000(t *testing.T) {
@@ -55,5 +56,23 @@ func Test_classify_002(t *testing.T) {
 	// No audio has no class
 	if got := classify(map[segmenter.Class]time.Duration{}); got != nil {
 		t.Errorf("expected nothing, got %v", got)
+	}
+}
+
+func Test_transcribe_000(t *testing.T) {
+	// Audio which is speech is transcribed, unless it's tagged as a
+	// recording, and music and silence aren't
+	o := &metadata.Opts{}
+	for _, test := range []struct {
+		durations map[segmenter.Class]time.Duration
+		want      bool
+	}{
+		{map[segmenter.Class]time.Duration{segmenter.ClassSpeech: 8 * time.Second, segmenter.ClassSilence: 2 * time.Second}, true},
+		{map[segmenter.Class]time.Duration{segmenter.ClassMusic: 8 * time.Second, segmenter.ClassSpeech: 2 * time.Second}, false},
+		{map[segmenter.Class]time.Duration{segmenter.ClassSilence: 10 * time.Second}, false},
+	} {
+		if got := transcribe(classify(test.durations), o); got != test.want {
+			t.Errorf("%v: expected %v, got %v", test.durations, test.want, got)
+		}
 	}
 }

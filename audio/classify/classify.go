@@ -8,6 +8,7 @@ import (
 	"io"
 	"math"
 	"regexp"
+	"slices"
 	"time"
 
 	// Packages
@@ -48,10 +49,26 @@ const (
 	// minSound is the least fraction of audio which isn't silence, for it
 	// to be classified as anything other than silence
 	minSound = 0.1
+
+	// Enabled is true, as it's built with cgo and the libfvad tag, so audio
+	// is classified when it's asked for
+	Enabled = true
 )
 
 var (
 	reContentType = regexp.MustCompile(`^audio/.+$`)
+
+	// recordingKeys are the keys of the tags which identify audio as a
+	// recording, such as a song, which isn't transcribed
+	recordingKeys = []struct{ ns, key string }{
+		{"musicbrainz", "recording-id"},
+		{"musicbrainz", "track-id"},
+		{"musicbrainz", "release-id"},
+		{"musicbrainz", "release-group-id"},
+		{"musicbrainz", "artist-id"},
+		{"musicbrainz", "work-id"},
+		{"acoustid", "id"},
+	}
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -59,7 +76,9 @@ var (
 
 func init() {
 	// The class of audio, which runs after the handler of audio, for whether
-	// it's protected with DRM
+	// it's protected with DRM, and its tags, and the hint of its
+	// transcription, when it's speech, in place of the handler of audio's,
+	// which is from its tags alone
 	metadata.AddHandlerAfter(reContentType, "classify", []string{Namespace}, func(ctx context.Context, r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
 		// A playlist, which is text, isn't audio, audio protected with DRM
 		// can't be decoded, and audio with a MusicBrainz release type is a
@@ -79,8 +98,12 @@ func init() {
 		if err != nil {
 			return nil, ctx.Err()
 		}
-		return classify(durations), nil
-	}, Namespace)
+		result := classify(durations)
+		if transcribe(result, o) {
+			result = append(result, metadata.HintMetadata(metadata.HintTranscription)...)
+		}
+		return result, nil
+	}, Namespace, metadata.MetadataNamespace)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -151,4 +174,18 @@ func classify(durations map[segmenter.Class]time.Duration) []metadata.Metadata {
 		meta.New(Namespace, "music", fraction(segmenter.ClassMusic)),
 		meta.New(Namespace, "silence", fraction(segmenter.ClassSilence)),
 	}
+}
+
+// transcribe returns true when audio can be transcribed, which is when it's
+// mostly speech, and it isn't tagged as a recording, such as a song with
+// prominent vocals
+func transcribe(result []metadata.Metadata, o *metadata.Opts) bool {
+	if !slices.ContainsFunc(result, func(m metadata.Metadata) bool {
+		return m.Key() == "class" && m.Value() == ClassSpeech
+	}) {
+		return false
+	}
+	return !slices.ContainsFunc(recordingKeys, func(k struct{ ns, key string }) bool {
+		return o.Get(k.ns, k.key) != nil
+	})
 }

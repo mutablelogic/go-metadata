@@ -53,15 +53,15 @@ func (m *match) images(dimension int) []tmdbImage {
 }
 
 // hints returns the hints of the movie, show or episode: its artwork, when
-// it has an image, and its collection, when it's a show's, or an episode of
-// one, which aren't downloaded
+// it has an image, which isn't downloaded, and that it's TV, when it's a
+// show's, or an episode of one
 func (m *match) hints() []string {
 	var hints []string
 	if slices.ContainsFunc(m.images(0), func(image tmdbImage) bool { return image.path != "" }) {
 		hints = append(hints, metadata.HintArtwork)
 	}
 	if m.show != nil {
-		hints = append(hints, metadata.HintCollection)
+		hints = append(hints, metadata.HintTV)
 	}
 	return hints
 }
