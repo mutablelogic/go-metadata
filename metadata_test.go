@@ -329,6 +329,48 @@ var addErrorHandlers = sync.OnceFunc(func() {
 	AddHandler(re, "c", returns("c", nil))
 })
 
+// addUnreadableHandlers registers handlers which find the input invalid, and
+// one which reads it
+var addUnreadableHandlers = sync.OnceFunc(func() {
+	re := regexp.MustCompile(`^application/x-test-unreadable$`)
+	AddHandler(re, "truncated", returns("truncated", ErrBadParameter.With("not a pdf document: unexpected eof")))
+	AddHandler(re, "failed", returns("failed", errA))
+	AddHandler(re, "nested", returns("nested", errors.Join(errB, ErrBadParameter.Withf("the text of the book: %s", "too deep"))))
+	AddHandler(re, "read", returns("read", nil))
+})
+
+func Test_metadata_unreadable(t *testing.T) {
+	// A note says why the input couldn't be read, for each handler which
+	// found it invalid, but not for other errors, which are returned too
+	addUnreadableHandlers()
+
+	_, meta, err := Extract(context.Background(), bytes.NewReader(nil), WithContentType("application/x-test-unreadable"))
+	if !errors.Is(err, ErrBadParameter) || !errors.Is(err, errA) || !errors.Is(err, errB) {
+		t.Fatalf("expected the errors, got %v", err)
+	}
+	var notes [][]string
+	for _, m := range meta {
+		if m.NS() == MetadataNamespace && m.Key() == NoteKey {
+			note, _ := m.Any().([]string)
+			notes = append(notes, note)
+		}
+	}
+	if len(notes) != 1 {
+		t.Fatalf("expected one metadata:note, got %v", notes)
+	}
+	slices.Sort(notes[0])
+	if want := []string{"It can't be read, so it may be damaged or incomplete: not a pdf document: unexpected eof", "It can't be read, so it may be damaged or incomplete: the text of the book: too deep"}; !slices.Equal(notes[0], want) {
+		t.Fatalf("expected %v, got %v", want, notes[0])
+	}
+
+	// Input which is read has no note
+	addErrorHandlers()
+	_, meta, _ = Extract(context.Background(), bytes.NewReader(nil), WithContentType("application/x-test-errors"))
+	if slices.ContainsFunc(meta, func(m Metadata) bool { return m.Key() == NoteKey }) {
+		t.Fatal("expected no metadata:note")
+	}
+}
+
 func Test_metadata_009(t *testing.T) {
 	// The metadata from every handler is returned, along with the errors
 	// of the handlers which failed

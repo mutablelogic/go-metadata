@@ -242,6 +242,11 @@ a calendar of events is tagged `event`, and with what its events are, such as `b
 such as an invitation, and a mailbox with one, are tagged `event`. A handler returns them with
 `TagMetadata`, which leaves out those which aren't identifiers.
 
+`metadata:note` is a list of notes about reading a file: for each handler which found it invalid,
+and returned `ErrBadParameter`, such as for a PDF which is cut short, that it couldn't be read and
+why, such as `It can't be read, so it may be damaged or incomplete: not a pdf document: …`. It's returned with the error, so an indexer can store
+the file with what was read of it, and show why the rest wasn't.
+
 Options change what's extracted:
 
 | Option | |

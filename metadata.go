@@ -136,6 +136,12 @@ const (
 	// handlers which read it (see TagMetadata)
 	TagKey = "tag"
 
+	// NoteKey is the key of the notes about reading the input, in the
+	// metadata namespace, which are a list of strings: for each handler which
+	// found the input invalid, such as a PDF which is cut short, that it
+	// couldn't be read, and why. Extract returns them with the error.
+	NoteKey = "note"
+
 	// ArtworkNamespace is the namespace of images which represent a
 	// document, such as the thumbnails of its pages, which a handler
 	// returns only when it's requested, as extracting them is expensive
@@ -383,8 +389,13 @@ func Extract(parent context.Context, r io.Reader, opts ...Option) (_ string, _ [
 		results, errs = append(results, more...), errors.Join(errs, err)
 	}
 
-	// Return the content type, the metadata, and any errors
-	return contentType, o.result(r, combine(results)), errs
+	// Return the content type, the metadata, with a note of why the input
+	// couldn't be read, when a handler found it invalid, and any errors
+	meta := combine(results)
+	if notes := unreadable(errs); len(notes) > 0 {
+		meta = append(meta, notes)
+	}
+	return contentType, o.result(r, meta), errs
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -623,6 +634,25 @@ func (m hintMeta) Bytes() []byte      { return []byte(m.Value()) }
 func (m hintMeta) Image() image.Image { return nil }
 func (m hintMeta) Any() any           { return []string(m) }
 
+// unreadable returns a note for each of the errors which is ErrBadParameter,
+// as a handler found the input invalid, that it can't be read, and why, as
+// metadata:note, or nil when there are none
+func unreadable(err error) noteMeta {
+	if err == nil {
+		return nil
+	} else if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		var notes noteMeta
+		for _, err := range joined.Unwrap() {
+			notes = append(notes, unreadable(err)...)
+		}
+		return notes
+	} else if errors.Is(err, ErrBadParameter) {
+		reason := strings.TrimPrefix(err.Error(), ErrBadParameter.Error()+": ")
+		return noteMeta{"It can't be read, so it may be damaged or incomplete: " + reason}
+	}
+	return nil
+}
+
 // tagMeta is the tags of an input, as metadata:tag
 type tagMeta []string
 
@@ -632,6 +662,16 @@ func (m tagMeta) Value() string      { return strings.Join(m, ",") }
 func (m tagMeta) Bytes() []byte      { return []byte(m.Value()) }
 func (m tagMeta) Image() image.Image { return nil }
 func (m tagMeta) Any() any           { return []string(m) }
+
+// noteMeta is the notes about reading an input, as metadata:note
+type noteMeta []string
+
+func (m noteMeta) NS() string         { return MetadataNamespace }
+func (m noteMeta) Key() string        { return NoteKey }
+func (m noteMeta) Value() string      { return strings.Join(m, "\n") }
+func (m noteMeta) Bytes() []byte      { return []byte(m.Value()) }
+func (m noteMeta) Image() image.Image { return nil }
+func (m noteMeta) Any() any           { return []string(m) }
 
 type valueMeta struct {
 	ns, key, value string
