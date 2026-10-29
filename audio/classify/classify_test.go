@@ -103,3 +103,42 @@ func Test_classify_003(t *testing.T) {
 		}
 	}
 }
+
+// withReleaseType writes a copy of an MP3 file with an ID3 tag of its
+// MusicBrainz release type, as a TXXX frame, as MusicBrainz Picard writes it
+func withReleaseType(t *testing.T, path, releaseType string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	frame := append([]byte{0}, []byte("MusicBrainz Album Type\x00"+releaseType)...)
+	var tag []byte
+	tag = append(tag, "TXXX"...)
+	tag = binary.BigEndian.AppendUint32(tag, uint32(len(frame)))
+	tag = append(tag, 0, 0)
+	tag = append(tag, frame...)
+	n := len(tag)
+	header := []byte{'I', 'D', '3', 3, 0, 0, byte(n >> 21 & 0x7f), byte(n >> 14 & 0x7f), byte(n >> 7 & 0x7f), byte(n & 0x7f)}
+	result := filepath.Join(t.TempDir(), "tagged.mp3")
+	if err := os.WriteFile(result, append(append(header, tag...), data...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return result
+}
+
+func Test_classify_004(t *testing.T) {
+	// Audio with a MusicBrainz release type isn't classified, as it's a
+	// known release, and without one it is
+	got := classOf(t, "../../testfiles/sample.mp3", "audio/mpeg")
+	if got["class"] == nil {
+		t.Fatal("expected a class")
+	}
+	got = classOf(t, withReleaseType(t, "../../testfiles/sample.mp3", "album"), "audio/mpeg")
+	if got["class"] != nil {
+		t.Errorf("expected no class, got %v", got["class"])
+	}
+	if got["duration"] == nil {
+		t.Error("expected the audio to be read")
+	}
+}

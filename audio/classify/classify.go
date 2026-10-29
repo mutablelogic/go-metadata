@@ -26,6 +26,11 @@ const (
 	// protected with DRM, as audio:drm
 	Namespace = "audio"
 
+	// musicBrainzNamespace is the namespace of the MusicBrainz identifiers
+	// and details of audio, which ffmpeg's handler reads from its tags, such
+	// as its release type, as musicbrainz:release-type
+	musicBrainzNamespace = "musicbrainz"
+
 	// MaxDuration is the most of audio which is classified, from its start,
 	// so long audio, such as an audiobook, is classified quickly
 	MaxDuration = 10 * time.Minute
@@ -56,11 +61,16 @@ func init() {
 	// The class of audio, which runs after the handler of audio, for whether
 	// it's protected with DRM
 	metadata.AddHandlerAfter(reContentType, "classify", []string{Namespace}, func(ctx context.Context, r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
-		// A playlist, which is text, isn't audio, and audio protected with
-		// DRM can't be decoded
+		// A playlist, which is text, isn't audio, audio protected with DRM
+		// can't be decoded, and audio with a MusicBrainz release type is a
+		// release which is known already, such as an album, so it isn't
+		// decoded to classify it, as the AcoustID handler doesn't look up
+		// a recording which is known
 		if playlist.ContentTypes.MatchString(o.ContentType()) {
 			return nil, nil
 		} else if drm := o.Get(Namespace, "drm"); drm != nil && drm.Any() == true {
+			return nil, nil
+		} else if o.Get(musicBrainzNamespace, "release-type") != nil {
 			return nil, nil
 		}
 		// Audio which can't be decoded isn't classified, which isn't an
