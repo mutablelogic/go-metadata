@@ -3,10 +3,13 @@
 package ffmpeg
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"image"
 	"io"
+	"maps"
+	"slices"
 
 	// Packages
 	gomedia "github.com/mutablelogic/go-media"
@@ -85,10 +88,10 @@ func coverArtwork(pictures []gomedia.Metadata, o *metadata.Opts) []metadata.Meta
 }
 
 // thumbnailArtwork returns the frames of a video, as artwork: the one which
-// best represents it, as artwork:thumbnail, and one of each of its other
-// scenes which make good thumbnails, as artwork:thumbnail-2 and so on, in
-// time order, or nothing when it has no video stream, or its frames can't be
-// decoded
+// best represents it, as artwork:thumbnail, and the best of each of its
+// other scenes which make good thumbnails, as artwork:thumbnail-2 and so on,
+// in time order, or nothing when it has no video stream, or its frames can't
+// be decoded
 func thumbnailArtwork(ctx context.Context, r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
 	th, err := thumbnailer.NewReader(r, thumbnailer.WithSize(0, 0))
 	if err != nil {
@@ -110,19 +113,32 @@ func thumbnailArtwork(ctx context.Context, r io.Reader, o *metadata.Opts) ([]met
 		result = append(result, entry)
 	}
 
-	// One thumbnail of each other scene, as there are more thumbnails than
-	// scenes when a video has few
-	scenes := map[int]bool{poster.Scene: true}
-	for _, thumbnail := range thumbnails {
-		if scenes[thumbnail.Scene] || len(result) >= maxThumbnails {
-			continue
-		}
-		scenes[thumbnail.Scene] = true
+	for _, thumbnail := range otherScenes(*poster, thumbnails, maxThumbnails-1) {
 		if entry := frameImage(thumbnail.Image, fmt.Sprintf("%s-%d", thumbnailKey, len(result)+1), o); entry != nil {
 			result = append(result, entry)
 		}
 	}
 	return result, nil
+}
+
+// otherScenes returns the best thumbnail of each scene other than the
+// poster's, as there are more thumbnails than scenes when a video has few,
+// and of the best n scenes when there are more, in time order
+func otherScenes(poster thumbnailer.Thumbnail, thumbnails []thumbnailer.Thumbnail, n int) []thumbnailer.Thumbnail {
+	best := make(map[int]thumbnailer.Thumbnail)
+	for _, thumbnail := range thumbnails {
+		if thumbnail.Scene == poster.Scene {
+			continue
+		}
+		if b, exists := best[thumbnail.Scene]; !exists || thumbnail.Stats.Score > b.Stats.Score {
+			best[thumbnail.Scene] = thumbnail
+		}
+	}
+	result := slices.Collect(maps.Values(best))
+	slices.SortFunc(result, func(a, b thumbnailer.Thumbnail) int { return cmp.Compare(b.Stats.Score, a.Stats.Score) })
+	result = result[:min(n, len(result))]
+	slices.SortFunc(result, func(a, b thumbnailer.Thumbnail) int { return cmp.Compare(a.Time, b.Time) })
+	return result
 }
 
 // frameImage returns a frame of a video as artwork, with the key, downscaled
