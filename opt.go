@@ -32,6 +32,11 @@ type Opts struct {
 	// when the limit is zero
 	offset, limit uint64
 
+	// Whether the length of all of the Markdown is returned, as
+	// markdown:length, which converts all of it, rather than stopping once
+	// the part is read
+	length bool
+
 	// The password of a document which is encrypted
 	password string
 
@@ -131,6 +136,17 @@ func WithRange(r string) Option {
 			return ErrBadParameter.With(err)
 		}
 		o.offset, o.limit = offset, limit
+		return nil
+	}
+}
+
+// Return the length of all of the Markdown, in bytes, as markdown:length,
+// which the range's offsets are of, so how much there is is known with the
+// first part. The whole document is converted, rather than the handler
+// stopping once it has the part, so it's slower.
+func WithLength() Option {
+	return func(o *Opts) error {
+		o.length = true
 		return nil
 	}
 }
@@ -283,6 +299,12 @@ func (o *Opts) HasNamespace(ns string) bool {
 // set. A limit of zero is to the end.
 func (o *Opts) Range() (offset, limit uint64) {
 	return o.offset, o.limit
+}
+
+// Length returns true when the length of all of the Markdown is returned,
+// set via WithLength
+func (o *Opts) Length() bool {
+	return o.length
 }
 
 // MaxImageDimension returns the largest width or height of an image, in

@@ -172,3 +172,20 @@ func Test_markdown_006(t *testing.T) {
 		}
 	}
 }
+
+func Test_markdown_length(t *testing.T) {
+	// The length is of the Markdown, without its front matter, with the
+	// first part
+	body := strings.Repeat("Hello, world.\n", 100)
+	doc := "---\ntitle: Note\n---\n" + body
+	meta, err := extract(t, doc, metadata.WithNamespace(metadata.MarkdownNamespace), metadata.WithRange("0:100"), metadata.WithLength())
+	if err != nil {
+		t.Fatal(err)
+	}
+	length, ok := meta["markdown:length"]
+	if !ok {
+		t.Fatal("no markdown:length")
+	} else if got := length.Any().(uint64); got != uint64(len(body)) {
+		t.Errorf("length %d, not %d", got, len(body))
+	}
+}
