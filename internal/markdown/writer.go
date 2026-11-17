@@ -27,6 +27,7 @@ type Writer struct {
 	pos           uint64
 	buf           []byte
 	more          bool
+	count         bool // Whether all of it is counted, for its length
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -43,7 +44,7 @@ var errFull = errors.New("the markdown's range is full")
 // range set via metadata.WithRange, or the first kilobyte when it wasn't set
 func NewWriter(o *metadata.Opts) *Writer {
 	offset, limit := o.Range()
-	return &Writer{offset: offset, limit: limit}
+	return &Writer{offset: offset, limit: limit, count: o.Length()}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -53,6 +54,12 @@ func NewWriter(o *metadata.Opts) *Writer {
 // has the part, and there's more of the Markdown, so the handler can stop.
 func (w *Writer) Write(data []byte) (int, error) {
 	if w.more {
+		// Once it has the part, the rest is counted, for its length, or
+		// the handler stops
+		if w.count {
+			w.pos += uint64(len(data))
+			return len(data), nil
+		}
 		return 0, errFull
 	}
 	n := 0
@@ -71,6 +78,10 @@ func (w *Writer) Write(data []byte) (int, error) {
 		w.buf = append(w.buf, data[:keep]...)
 		w.pos += uint64(keep)
 		w.more = true
+		if w.count {
+			w.pos += uint64(len(data) - keep)
+			return n + len(data), nil
+		}
 		return n + keep, errFull
 	}
 	w.buf = append(w.buf, data...)
@@ -117,6 +128,9 @@ func (w *Writer) Metadata(err error) ([]metadata.Metadata, error) {
 	}
 	if w.more {
 		result = append(result, meta.New(metadata.MarkdownNamespace, "next", w.offset+uint64(end)))
+	}
+	if w.count {
+		result = append(result, meta.New(metadata.MarkdownNamespace, "length", w.pos))
 	}
 	return result, nil
 }

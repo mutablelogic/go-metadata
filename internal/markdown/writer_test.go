@@ -202,3 +202,41 @@ func Test_markdown_005(t *testing.T) {
 		t.Errorf("all: got %d bytes, next %v, %v", len(body), next, err)
 	}
 }
+
+func Test_markdown_length(t *testing.T) {
+	// With WithLength, the first part has the length of all of the Markdown,
+	// for every limit, which the handler converts all of, rather than
+	// stopping, and without it, there's no length, and it stops
+	total := uint64(len(markdownDocument))
+	lengthOf := func(opts ...Option) (*uint64, error) {
+		opts = append(opts, WithNamespace(MarkdownNamespace), WithContentType("x-test/markdown"))
+		_, meta, err := Extract(context.Background(), strings.NewReader(markdownDocument), opts...)
+		if err != nil {
+			return nil, err
+		}
+		for _, entry := range meta {
+			if entry.NS() == MarkdownNamespace && entry.Key() == "length" {
+				value := entry.Any().(uint64)
+				return &value, nil
+			}
+		}
+		return nil, nil
+	}
+	for limit := uint64(utf8.UTFMax); limit <= total+1; limit++ {
+		length, err := lengthOf(WithRange(rng(0, limit)), WithLength())
+		if err != nil {
+			t.Fatalf("limit %d: %v", limit, err)
+		} else if length == nil || *length != total {
+			t.Fatalf("limit %d: length %v, not %d", limit, length, total)
+		}
+	}
+	markdownLines = 0
+	length, err := lengthOf(WithRange(rng(0, 8)))
+	if err != nil {
+		t.Fatal(err)
+	} else if length != nil {
+		t.Errorf("length %d, without WithLength", *length)
+	} else if lines := strings.Count(markdownDocument, "\n"); markdownLines >= lines {
+		t.Errorf("converted %d lines, of %d, rather than stopping", markdownLines, lines)
+	}
+}

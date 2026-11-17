@@ -66,6 +66,7 @@ var reservedKeys = map[string]bool{
 	"body":   true,
 	"offset": true,
 	"next":   true,
+	"length": true,
 	"note":   true,
 }
 

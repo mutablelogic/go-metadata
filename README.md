@@ -269,6 +269,7 @@ Options change what's extracted:
 | `WithNamespace(ns...)` | Only the metadata in these namespaces, and only the handlers which return them |
 | `WithNamespace(metadata.MarkdownNamespace)` | The content of a document, as Markdown, as `markdown:body` |
 | `WithRange("0:4096")` | The range of bytes of the Markdown, which is the first kilobyte when it isn't set, with `markdown:next` when there's more |
+| `WithLength()` | With the range's part, `markdown:length`, the length of all of the Markdown, which the range's offsets are of, so how much there is is known with the first part. The whole document is converted, rather than stopping once the part is read. |
 | `WithNamespace(metadata.ArtworkNamespace)` | Artwork, whose images are `Image()` and `Bytes()` |
 | `WithMaxImageDimension(pixels)`, `WithImageDPI(dpi)` | The size of artwork, and of the images of pages |
 | `WithMinImageDimension(pixels)` | The smallest thumbnail embedded in an image, such as a photo's EXIF thumbnail, which is its artwork, or else the image itself is (256 pixels by default) |
