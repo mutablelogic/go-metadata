@@ -1,4 +1,4 @@
-package video_test
+package kind_test
 
 import (
 	"os"
@@ -9,7 +9,7 @@ import (
 	metadata "github.com/mutablelogic/go-metadata"
 	dc "github.com/mutablelogic/go-metadata/dublincore"
 	testassert "github.com/mutablelogic/go-metadata/internal/testassert"
-	_ "github.com/mutablelogic/go-metadata/video"
+	_ "github.com/mutablelogic/go-metadata/video/kind"
 )
 
 // kind returns the kind of a file
@@ -30,7 +30,7 @@ func kind(t *testing.T, path string) string {
 func Test_FallbackKind(t *testing.T) {
 	// Video has a kind, which isn't unknown, of ffmpeg, or of its content
 	// type, without it
-	k := kind(t, filepath.Join("..", "testfiles", "sample.mp4"))
+	k := kind(t, filepath.Join("..", "..", "testfiles", "sample.mp4"))
 	assert.True(t, k != dc.KindUnknown)
 	assert.NotEmpty(t, k)
 }

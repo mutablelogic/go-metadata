@@ -1,4 +1,9 @@
-package video
+// Package kind registers the kind of video, of its content type, which is
+// returned when nothing else returns one, such as without cgo, when ffmpeg
+// doesn't read it, or when it fails to, so it isn't unknown. It's pure Go,
+// so a program which isn't built with cgo, or ffmpeg, can import it, as the
+// video package, which imports it, isn't.
+package kind
 
 import (
 	"context"

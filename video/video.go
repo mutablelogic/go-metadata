@@ -7,6 +7,7 @@ package video
 
 import (
 	// Handlers
+	_ "github.com/mutablelogic/go-metadata/video/kind"
 	_ "github.com/mutablelogic/go-metadata/video/subtitle"
 	_ "github.com/mutablelogic/go-metadata/video/tmdb"
 )

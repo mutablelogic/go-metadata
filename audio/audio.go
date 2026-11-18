@@ -8,5 +8,6 @@ package audio
 import (
 	// Handlers
 	_ "github.com/mutablelogic/go-metadata/audio/acoustid"
+	_ "github.com/mutablelogic/go-metadata/audio/kind"
 	_ "github.com/mutablelogic/go-metadata/audio/playlist"
 )

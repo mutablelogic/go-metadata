@@ -1,4 +1,4 @@
-package audio_test
+package kind_test
 
 import (
 	"os"
@@ -7,7 +7,8 @@ import (
 
 	// Packages
 	metadata "github.com/mutablelogic/go-metadata"
-	_ "github.com/mutablelogic/go-metadata/audio"
+	_ "github.com/mutablelogic/go-metadata/audio/kind"
+	_ "github.com/mutablelogic/go-metadata/audio/playlist"
 	dc "github.com/mutablelogic/go-metadata/dublincore"
 	testassert "github.com/mutablelogic/go-metadata/internal/testassert"
 )
@@ -35,7 +36,7 @@ func Test_FallbackKind(t *testing.T) {
 	// Audio has a kind, which isn't unknown, of ffmpeg, or of its content
 	// type, without it, and a DCMI type
 	for _, name := range []string{"sample.mp3", "jfk.wav"} {
-		kind, typ := kind(t, filepath.Join("..", "testfiles", name))
+		kind, typ := kind(t, filepath.Join("..", "..", "testfiles", name))
 		assert.True(t, kind != dc.KindUnknown, name)
 		assert.NotEmpty(t, kind, name)
 		assert.NotEmpty(t, typ, name)

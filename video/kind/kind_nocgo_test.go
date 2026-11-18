@@ -1,6 +1,6 @@
 //go:build !cgo
 
-package video_test
+package kind_test
 
 import (
 	"path/filepath"
@@ -12,5 +12,5 @@ import (
 
 func Test_FallbackKindNoCgo(t *testing.T) {
 	// Without cgo, video's kind is of its content type
-	assert.Equal(t, dc.KindVideo, kind(t, filepath.Join("..", "testfiles", "sample.mp4")))
+	assert.Equal(t, dc.KindVideo, kind(t, filepath.Join("..", "..", "testfiles", "sample.mp4")))
 }
