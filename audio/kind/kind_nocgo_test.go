@@ -1,6 +1,6 @@
 //go:build !cgo
 
-package audio_test
+package kind_test
 
 import (
 	"path/filepath"
@@ -12,7 +12,7 @@ import (
 
 func Test_FallbackKindNoCgo(t *testing.T) {
 	// Without cgo, audio's kind is of its content type
-	kind, typ := kind(t, filepath.Join("..", "testfiles", "sample.mp3"))
+	kind, typ := kind(t, filepath.Join("..", "..", "testfiles", "sample.mp3"))
 	assert.Equal(t, dc.KindAudio, kind)
 	assert.Equal(t, dc.TypeOf(dc.KindAudio), typ)
 }
