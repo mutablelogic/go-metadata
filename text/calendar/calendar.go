@@ -39,7 +39,9 @@ type Event struct {
 	Location     string   `json:"location,omitempty"`
 	Start        string   `json:"start,omitempty"`
 	End          string   `json:"end,omitempty"`
-	Due          string   `json:"due,omitempty"` // when a task is due, as a date or an instant
+	Due          string   `json:"due,omitempty"`       // when a task is due, as a date or an instant
+	Completed    string   `json:"completed,omitempty"` // when a task was completed, as an instant
+	Parent       string   `json:"parent,omitempty"`    // the UID of a task's parent, of which it's a subtask
 	AllDay       bool     `json:"all_day,omitempty"`
 	TZ           string   `json:"tz,omitempty"`      // the zone of a timed event, or UTC
 	NoYear       bool     `json:"no_year,omitempty"` // a yearly event whose first year isn't known, such as a birthday
@@ -356,6 +358,7 @@ func toEvent(e *ical.Event) Event {
 		Start:       format(e.Start),
 		End:         format(e.End),
 		Due:         format(e.Due),
+		Parent:      e.Parent,
 		AllDay:      e.Start.Date,
 		TZ:          zone(e.Start),
 		NoYear:      e.OmitYear > 0,
@@ -365,6 +368,9 @@ func toEvent(e *ical.Event) Event {
 		Attendees:   e.Attendees,
 		Categories:  e.Categories,
 		URL:         e.URL,
+	}
+	if !e.Completed.IsZero() {
+		result.Completed = e.Completed.UTC().Format(time.RFC3339)
 	}
 	for _, exdate := range e.ExDates {
 		result.ExDate = append(result.ExDate, format(exdate))

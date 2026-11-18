@@ -277,3 +277,63 @@ func Test_roundtrip_000(t *testing.T) {
 		t.Errorf("unexpected event %+v", a)
 	}
 }
+
+func Test_task_000(t *testing.T) {
+	// A task without a time is a task, which has no start, or end, and its
+	// completion, and parent, are its own, and a relation which isn't its
+	// parent isn't
+	c := decode(t, calendar(
+		"BEGIN:VTODO",
+		"UID:child@example.com",
+		"SUMMARY:Buy milk",
+		"STATUS:COMPLETED",
+		"COMPLETED:20261118T130000Z",
+		"RELATED-TO;RELTYPE=SIBLING:other@example.com",
+		"RELATED-TO:parent@example.com",
+		"END:VTODO",
+		"BEGIN:VTODO",
+		"UID:sub@example.com",
+		"RELATED-TO;RELTYPE=PARENT:parent@example.com",
+		"END:VTODO",
+		"BEGIN:VEVENT",
+		"UID:event@example.com",
+		"SUMMARY:An event without a start, which isn't one",
+		"END:VEVENT",
+	))
+	if len(c.Events) != 2 {
+		t.Fatalf("expected two tasks, got %d", len(c.Events))
+	}
+	task := c.Events[0]
+	if task.Kind != ical.KindTask || !task.Start.IsZero() || !task.End.IsZero() || !task.Due.IsZero() || task.Summary != "Buy milk" || task.Status != "COMPLETED" {
+		t.Errorf("unexpected task %+v", task)
+	}
+	if !task.Completed.Equal(utc(2026, 11, 18, 13, 0)) || task.Parent != "parent@example.com" {
+		t.Errorf("unexpected completion, or parent, %v %q", task.Completed, task.Parent)
+	}
+	if c.Events[1].Parent != "parent@example.com" {
+		t.Errorf("unexpected parent %q", c.Events[1].Parent)
+	}
+
+	// A task is encoded, and decoded, as it was
+	want := &ical.Event{Kind: ical.KindTask, UID: "t@example.com", Summary: "Task", Due: ical.Date(2026, 11, 20), Status: "COMPLETED", Completed: utc(2026, 11, 18, 13, 0), Parent: "p@example.com", Modified: utc(2026, 11, 18, 13, 0)}
+	untimed := &ical.Event{Kind: ical.KindTask, UID: "u@example.com", Summary: "Whenever"}
+	data, err := (&ical.Calendar{ProdID: ical.DefaultProdID, Events: []*ical.Event{want, untimed}}).MarshalText()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range []string{"BEGIN:VTODO", "COMPLETED:20261118T130000Z", "RELATED-TO:p@example.com", "DUE;VALUE=DATE:20261120"} {
+		if !strings.Contains(string(data), line+"\r\n") {
+			t.Errorf("expected %q in %q", line, data)
+		}
+	}
+	got := decode(t, string(data))
+	if len(got.Events) != 2 {
+		t.Fatalf("expected two tasks, got %d", len(got.Events))
+	}
+	if e := got.Events[0]; e.Due != want.Due || !e.Completed.Equal(want.Completed) || e.Parent != want.Parent || e.Status != want.Status || !e.Modified.Equal(want.Modified) {
+		t.Errorf("expected %+v, got %+v", want, e)
+	}
+	if e := got.Events[1]; e.Summary != "Whenever" || !e.Start.IsZero() {
+		t.Errorf("unexpected task %+v", e)
+	}
+}

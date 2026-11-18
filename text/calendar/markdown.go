@@ -6,6 +6,7 @@ import (
 	"io"
 	"slices"
 	"strings"
+	"time"
 
 	// Packages
 	metadata "github.com/mutablelogic/go-metadata"
@@ -86,6 +87,9 @@ func eventMarkdown(e Event) string {
 		}
 	}
 	item("When", eventWhen(e))
+	if completed, err := time.Parse(time.RFC3339, e.Completed); err == nil {
+		item("Completed", formatDate(completed))
+	}
 	item("Where", e.Location)
 	item("Organizer", e.Organizer)
 	item("Attendees", strings.Join(e.Attendees, ", "))

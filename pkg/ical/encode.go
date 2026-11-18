@@ -117,6 +117,10 @@ func writeEvent(w *contentline.Writer, e *Event) {
 		w.Write("URL", nil, strings.NewReplacer("\r", "%0D", "\n", "%0A").Replace(url))
 	}
 	text(w, "STATUS", nil, strings.ToUpper(e.Status))
+	if !e.Completed.IsZero() {
+		w.Write("COMPLETED", nil, e.Completed.UTC().Format(timeLayout+"Z"))
+	}
+	text(w, "RELATED-TO", nil, e.Parent)
 	if organizer := strings.TrimSpace(e.Organizer); organizer != "" {
 		w.Write("ORGANIZER", nil, "mailto:"+organizer)
 	}

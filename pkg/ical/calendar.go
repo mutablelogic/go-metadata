@@ -39,6 +39,8 @@ type Event struct {
 	Start        Time         `json:"start,omitzero"`         // When it starts
 	End          Time         `json:"end,omitzero"`           // When it ends, which is exclusive
 	Due          Time         `json:"due,omitzero"`           // When a task is due
+	Completed    time.Time    `json:"completed,omitzero"`     // When a task was completed
+	Parent       string       `json:"parent,omitempty"`       // The UID of a task's parent, of which it's a subtask
 	RRule        string       `json:"rrule,omitempty"`        // How it repeats, such as FREQ=YEARLY
 	ExDates      []Time       `json:"exdates,omitempty"`      // The starts of a repeating event which it excludes
 	RecurrenceID Time         `json:"recurrence_id,omitzero"` // The start of an occurrence it changes

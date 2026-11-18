@@ -168,6 +168,13 @@ func parseEvent(component string, properties []contentline.Property) (*Event, bo
 			e.End, hasEnd = parseTime(p)
 		case "DUE":
 			e.Due, _ = parseTime(p)
+		case "COMPLETED":
+			e.Completed = parseInstant(p.Value)
+		case "RELATED-TO":
+			// The parent, which is its relationship when it has none
+			if reltype := strings.ToUpper(first(p.Params["RELTYPE"])); e.Parent == "" && (reltype == "" || reltype == "PARENT") {
+				e.Parent = unescape(p.Value)
+			}
 		case "DURATION":
 			duration = p.Value
 		case "RRULE":
@@ -211,10 +218,14 @@ func parseEvent(component string, properties []contentline.Property) (*Event, bo
 		}
 	}
 
-	// The start, which a task can do without, when it's due
+	// The start, which a task can do without, when it's due, or when it
+	// has no time at all, such as a task which isn't due, which has no
+	// start, or end
 	startIsDue := false
 	if e.Start.IsZero() && e.Kind == KindTask && !e.Due.IsZero() {
 		e.Start, startIsDue = e.Due, true
+	} else if e.Start.IsZero() && e.Kind == KindTask {
+		return e, true
 	} else if e.Start.IsZero() {
 		return nil, false
 	}
