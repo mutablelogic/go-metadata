@@ -715,3 +715,30 @@ func Test_calendar_011(t *testing.T) {
 		equal(t, tt.lines[1]+" ical:type", want, got["ical:type"])
 	}
 }
+
+func Test_task_000(t *testing.T) {
+	// A task without a time, such as one of Google Tasks, which isn't due,
+	// is its title, and its notes, without when it is
+	got := entries(t, ics("BEGIN:VTODO", "UID:a", "SUMMARY:Buy milk", "DESCRIPTION:Semi-skimmed", "STATUS:NEEDS-ACTION", "END:VTODO"), "task.ics")
+	equal(t, "title", "Buy milk", got["dc:title"])
+	equal(t, "description", "Semi-skimmed", got["dc:description"])
+	e := events(t, got)
+	equal(t, "start", "", e[0].Start)
+	equal(t, "kind", "task", e[0].Kind)
+
+	// A subtask which is completed has when, and its parent, and its
+	// Markdown says when it was completed
+	got = entries(t, ics("BEGIN:VTODO", "UID:b", "SUMMARY:Buy milk", "STATUS:COMPLETED", "COMPLETED:20261118T130000Z", "RELATED-TO:a", "END:VTODO"), "task.ics")
+	e = events(t, got)
+	equal(t, "completed", "2026-11-18T13:00:00Z", e[0].Completed)
+	equal(t, "parent", "a", e[0].Parent)
+	_, meta, err := metadata.Extract(context.Background(), strings.NewReader(ics("BEGIN:VTODO", "UID:b", "SUMMARY:Buy milk", "STATUS:COMPLETED", "COMPLETED:20261118T130000Z", "END:VTODO")), metadata.WithContentType("text/calendar"), metadata.WithNamespace(metadata.MarkdownNamespace))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range meta {
+		if m.Key() == "body" {
+			equal(t, "markdown", "## Buy milk\n\n- **Completed:** 18 November 2026\n\n", m.Value())
+		}
+	}
+}
