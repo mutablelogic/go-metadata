@@ -100,6 +100,11 @@ const (
 	// handler with a lower priority (see AddHandlerWithPriority).
 	DefaultPriority = 0
 
+	// FallbackPriority is the priority of a handler whose metadata is only
+	// returned when no other handler returns the same, such as the kind of
+	// audio, of its content type, when nothing else reads it
+	FallbackPriority = -1
+
 	// defaultMaxImageDimension is the largest width or height of an image,
 	// in pixels, when it isn't set with WithMaxImageDimension
 	defaultMaxImageDimension = 1024
@@ -178,7 +183,8 @@ func AddHandler(re *regexp.Regexp, name string, fn HandlerFunc, namespaces ...st
 // AddHandlerWithPriority adds a metadata handler, as AddHandler does, with
 // a priority, which is DefaultPriority, zero, or higher for a handler whose
 // metadata is better than others', such as the thumbnail embedded in a
-// photo, rather than the photo itself. Extract returns the metadata of the
+// photo, rather than the photo itself, or FallbackPriority, lower, for a
+// handler whose metadata is only of what others don't return. Extract returns the metadata of the
 // handlers with the highest priority first, and of those with the same
 // priority in the order they were added. Metadata with the same namespace
 // and key as metadata from a handler with a higher priority isn't
