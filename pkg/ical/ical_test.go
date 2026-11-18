@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"image"
 	"image/png"
+	"mime"
 	"reflect"
 	"strings"
 	"testing"
@@ -335,5 +336,32 @@ func Test_task_000(t *testing.T) {
 	}
 	if e := got.Events[1]; e.Summary != "Whenever" || !e.Start.IsZero() {
 		t.Errorf("unexpected task %+v", e)
+	}
+}
+
+func Test_contenttype_000(t *testing.T) {
+	// A calendar of tasks, or of events, says so, with its component, and a
+	// calendar of both, or of neither, is a calendar
+	task, event := &ical.Event{Kind: ical.KindTask}, &ical.Event{Kind: ical.KindEvent}
+	for want, c := range map[string]*ical.Calendar{
+		"text/calendar; component=VTODO":  {Events: []*ical.Event{task, task}},
+		"text/calendar; component=VEVENT": {Events: []*ical.Event{event}},
+		"text/calendar":                   {Events: []*ical.Event{task, event}},
+		"":                                {},
+	} {
+		if want == "" {
+			want = ical.ContentType
+		}
+		if got := c.ContentType(); got != want {
+			t.Errorf("expected %q, got %q", want, got)
+		}
+	}
+	if ical.TaskType != "text/calendar; component=VTODO" || ical.EventType != "text/calendar; component=VEVENT" {
+		t.Errorf("unexpected types %q %q", ical.TaskType, ical.EventType)
+	}
+
+	// Its parameter is what MIME parses
+	if mediaType, params, err := mime.ParseMediaType(ical.TaskType); err != nil || mediaType != ical.ContentType || params["component"] != "VTODO" {
+		t.Errorf("unexpected %q %v %v", mediaType, params, err)
 	}
 }
