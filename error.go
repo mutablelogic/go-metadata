@@ -86,6 +86,13 @@ func HTTPErr(err error) error {
 		return schemaErr.HTTP().With(err)
 	}
 
+	// Check for an error of a code, of the packages which don't import this
+	// one, such as pkg/geo's, which are of the same codes
+	var coded interface{ Code() uint }
+	if errors.As(err, &coded) {
+		return Err(coded.Code()).HTTP().With(err)
+	}
+
 	// Return internal error
 	return httpresponse.ErrInternalError.With(err)
 }

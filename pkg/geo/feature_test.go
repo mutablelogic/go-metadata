@@ -1,6 +1,7 @@
 package geo_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"reflect"
@@ -17,7 +18,7 @@ func Test_feature_000(t *testing.T) {
 	// LineString, or none, is read without one
 	data := []byte(`{"type":"FeatureCollection","features":[
 		{"type":"Feature","id":"park","geometry":{"type":"Polygon","coordinates":[[[0,0],[2,0],[2,1],[0,1],[0,0]]]},"properties":{"name":" The Park "}},
-		{"type":"Feature","id":7,"geometry":{"type":"Point","coordinates":[13.34,52.47,91.5]},"properties":{"title":"Gate"}},
+		{"type":"Feature","id":9007199254740993,"geometry":{"type":"Point","coordinates":[13.34,52.47,91.5]},"properties":{"title":"Gate"}},
 		{"type":"Feature","geometry":{"type":"LineString","coordinates":[[0,0],[1,1]]},"properties":null},
 		{"type":"Feature","geometry":null,"properties":{"name":"Nowhere"}}
 	]}`)
@@ -29,7 +30,7 @@ func Test_feature_000(t *testing.T) {
 	}
 	if got := features[0].Name(); got != "The Park" {
 		t.Errorf("name: got %q", got)
-	} else if features[0].ID != "park" || features[1].ID != float64(7) {
+	} else if features[0].ID != "park" || features[1].ID != json.Number("9007199254740993") {
 		t.Errorf("ids: got %v and %v", features[0].ID, features[1].ID)
 	} else if got := features[1].Name(); got != "Gate" {
 		t.Errorf("name of its title: got %q", got)
@@ -52,6 +53,9 @@ func Test_feature_000(t *testing.T) {
 	out, err := json.Marshal(c)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !bytes.Contains(out, []byte(`"id":9007199254740993`)) {
+		t.Errorf("a large id is written exactly: %s", out)
 	}
 	var read geo.FeatureCollection
 	if err := json.Unmarshal(out, &read); err != nil {
@@ -93,6 +97,10 @@ func Test_feature_001(t *testing.T) {
 		`{"type":"LineString","coordinates":[[0,0],[1,1]]}`,
 		`{"type":"FeatureCollection","features":[{"type":"Thing"}]}`,
 		`{"type":"Feature","geometry":{"type":"Point","coordinates":[1]}}`,
+		`{"type":"Feature","id":{"a":1},"geometry":null}`,
+		`{"type":"Point","coordinates":[0,91]}`,
+		`{"type":"Polygon","coordinates":[[[0,0],[1,0],[1,1],[0,1]]]}`,
+		`{"type":"Feature","geometry":{"type":"Polygon","coordinates":[[[0,0],[1,0],[0,0]]]}}`,
 	} {
 		if _, err := geo.ParseGeoJSON([]byte(data)); !errors.Is(err, metadata.ErrBadParameter) {
 			t.Errorf("%s: got %v, want ErrBadParameter", data, err)

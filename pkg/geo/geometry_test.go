@@ -81,13 +81,15 @@ func Test_geometry_002(t *testing.T) {
 	// A geometry which isn't valid, or of another type of GeoJSON's, is
 	// go-metadata's ErrBadParameter
 	for name, g := range map[string]geo.Geometry{
-		"latitude":   geo.NewPoint(91, 0),
-		"longitude":  geo.NewPoint(0, -181),
-		"open ring":  geo.NewPolygon([]geo.Position{{Long: 0, Lat: 0}, {Long: 1, Lat: 0}, {Long: 1, Lat: 1}, {Long: 0, Lat: 1}}),
-		"short ring": geo.NewPolygon([]geo.Position{{Long: 0, Lat: 0}, {Long: 1, Lat: 0}, {Long: 0, Lat: 0}}),
-		"no rings":   geo.NewPolygon(),
-		"none":       geo.NewMultiPolygon(),
-		"type":       {Type: "LineString"},
+		"latitude":    geo.NewPoint(91, 0),
+		"longitude":   geo.NewPoint(0, -181),
+		"open ring":   geo.NewPolygon([]geo.Position{{Long: 0, Lat: 0}, {Long: 1, Lat: 0}, {Long: 1, Lat: 1}, {Long: 0, Lat: 1}}),
+		"short ring":  geo.NewPolygon([]geo.Position{{Long: 0, Lat: 0}, {Long: 1, Lat: 0}, {Long: 0, Lat: 0}}),
+		"no rings":    geo.NewPolygon(),
+		"none":        geo.NewMultiPolygon(),
+		"type":        {Type: "LineString"},
+		"altitude":    geo.NewPolygon([]geo.Position{{Long: 0, Lat: 0, Alt: ptr(10)}, {Long: 1, Lat: 0}, {Long: 1, Lat: 1}, {Long: 0, Lat: 0, Alt: ptr(20)}}),
+		"no altitude": geo.NewPolygon([]geo.Position{{Long: 0, Lat: 0, Alt: ptr(10)}, {Long: 1, Lat: 0}, {Long: 1, Lat: 1}, {Long: 0, Lat: 0}}),
 	} {
 		if err := g.Validate(); !errors.Is(err, metadata.ErrBadParameter) {
 			t.Errorf("%s: got %v, want ErrBadParameter", name, err)
@@ -97,6 +99,8 @@ func Test_geometry_002(t *testing.T) {
 	for _, data := range []string{
 		`{"type":"LineString","coordinates":[[0,0],[1,1]]}`,
 		`{"type":"Point","coordinates":[1]}`,
+		`{"type":"Point","coordinates":[null,51.5]}`,
+		`{"type":"Point","coordinates":[-0.12,51.5,null]}`,
 	} {
 		if err := json.Unmarshal([]byte(data), &read); err == nil {
 			t.Errorf("%s: read, rather than an error", data)
@@ -105,6 +109,12 @@ func Test_geometry_002(t *testing.T) {
 }
 
 func Test_geometry_003(t *testing.T) {
+	// A ring is closed of its altitudes too, when they're the same
+	closed := geo.NewPolygon([]geo.Position{{Long: 0, Lat: 0, Alt: ptr(10)}, {Long: 1, Lat: 0}, {Long: 1, Lat: 1}, {Long: 0, Lat: 0, Alt: ptr(10)}})
+	if err := closed.Validate(); err != nil {
+		t.Error(err)
+	}
+
 	// A position is a point, of its altitude when it's known
 	alt := 91.5
 	if got, want := (geo.LatLong{Lat: 52.47, Long: 13.34, Alt: &alt}).Geometry(), geo.NewPoint(52.47, 13.34).WithAlt(91.5); !reflect.DeepEqual(got, want) {
@@ -118,4 +128,9 @@ func Test_geometry_003(t *testing.T) {
 	if _, err := geo.Parse("not a position"); !errors.Is(err, metadata.ErrBadParameter) {
 		t.Errorf("got %v, want ErrBadParameter", err)
 	}
+}
+
+// ptr returns a pointer to the value
+func ptr(v float64) *float64 {
+	return &v
 }

@@ -1,6 +1,7 @@
 package geo
 
 import (
+	"bytes"
 	"encoding/json"
 	"strings"
 
@@ -16,7 +17,7 @@ import (
 // it has one. Its geometry is nil when it has none, or when it's of a type
 // which a Geometry isn't, such as a LineString, which is read, without it.
 type Feature struct {
-	ID         any            // A string, or a number, or nil
+	ID         any            // A string, or a number, as a json.Number, so it's exact, or nil
 	Geometry   *Geometry      // Its geometry, or nil
 	Properties map[string]any // Its properties, or nil
 }
@@ -99,7 +100,7 @@ func (c FeatureCollection) Geometries() []Geometry {
 
 type featureJSON struct {
 	Type       string          `json:"type"`
-	ID         any             `json:"id,omitempty"`
+	ID         json.RawMessage `json:"id,omitempty"`
 	Geometry   json.RawMessage `json:"geometry"`
 	Properties map[string]any  `json:"properties"`
 }
@@ -112,7 +113,14 @@ type featureCollectionJSON struct {
 // MarshalJSON returns the feature as GeoJSON, whose geometry and properties
 // are null when it has none
 func (f Feature) MarshalJSON() ([]byte, error) {
-	v := featureJSON{Type: typeFeature, ID: f.ID, Geometry: json.RawMessage("null"), Properties: f.Properties}
+	v := featureJSON{Type: typeFeature, Geometry: json.RawMessage("null"), Properties: f.Properties}
+	if f.ID != nil {
+		data, err := json.Marshal(f.ID)
+		if err != nil {
+			return nil, err
+		}
+		v.ID = data
+	}
 	if f.Geometry != nil {
 		data, err := json.Marshal(f.Geometry)
 		if err != nil {
@@ -132,7 +140,11 @@ func (f *Feature) UnmarshalJSON(data []byte) error {
 	} else if v.Type != typeFeature {
 		return errs.BadParameter("GeoJSON feature: of type %q, rather than a Feature", v.Type)
 	}
-	result := Feature{ID: v.ID, Properties: v.Properties}
+	id, err := readID(v.ID)
+	if err != nil {
+		return err
+	}
+	result := Feature{ID: id, Properties: v.Properties}
 	if g, err := readGeometry(v.Geometry); err != nil {
 		return err
 	} else {
@@ -176,6 +188,27 @@ func (c *FeatureCollection) UnmarshalJSON(data []byte) error {
 
 ////////////////////////////////////////////////////////////////////////////////
 // PRIVATE FUNCTIONS
+
+// readID returns the identifier of a feature, which is a string, or a
+// number, as a json.Number, which is exact, as a float64 of a large integer
+// isn't, or nil when it has none
+func readID(data json.RawMessage) (any, error) {
+	if len(data) == 0 || string(data) == "null" {
+		return nil, nil
+	}
+	d := json.NewDecoder(bytes.NewReader(data))
+	d.UseNumber()
+	var id any
+	if err := d.Decode(&id); err != nil {
+		return nil, errs.BadParameter("GeoJSON feature: its id: %v", err)
+	}
+	switch id.(type) {
+	case string, json.Number:
+		return id, nil
+	default:
+		return nil, errs.BadParameter("GeoJSON feature: an id of %s, rather than a string or a number", data)
+	}
+}
 
 // readGeometry returns the geometry of GeoJSON, or nil when it's null, or
 // of a type which a Geometry isn't

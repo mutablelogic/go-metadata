@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"slices"
 
 	// Packages
 	errs "github.com/mutablelogic/go-metadata/internal/errs"
@@ -123,7 +124,7 @@ func (g Geometry) Validate() error {
 			for _, ring := range polygon {
 				if len(ring) < 4 {
 					return errs.BadParameter("a polygon's ring has %d positions, rather than four or more", len(ring))
-				} else if first, last := ring[0], ring[len(ring)-1]; first.Long != last.Long || first.Lat != last.Lat {
+				} else if !ring[0].equal(ring[len(ring)-1]) {
 					return errs.BadParameter("a polygon's ring isn't closed, as its last position isn't its first")
 				}
 				for _, position := range ring {
@@ -156,6 +157,16 @@ func (g Geometry) Bounds() Bounds {
 		}
 	}
 	return b
+}
+
+// equal returns true when the positions are the same, of their altitudes
+// too, which are both unknown, or the same, as a ring is closed when its
+// last position is its first
+func (p Position) equal(other Position) bool {
+	if p.Long != other.Long || p.Lat != other.Lat || (p.Alt == nil) != (other.Alt == nil) {
+		return false
+	}
+	return p.Alt == nil || *p.Alt == *other.Alt
 }
 
 // Validate returns ErrBadParameter when the position isn't of the earth
@@ -203,7 +214,7 @@ func (g Geometry) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON reads the geometry of GeoJSON, of a Point, Polygon or
-// MultiPolygon
+// MultiPolygon, which is valid (see Validate)
 func (g *Geometry) UnmarshalJSON(data []byte) error {
 	var v geometryJSON
 	if err := json.Unmarshal(data, &v); err != nil {
@@ -227,6 +238,9 @@ func (g *Geometry) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return errs.BadParameter("GeoJSON %s: %v", v.Type, err)
 	}
+	if err := result.Validate(); err != nil {
+		return err
+	}
 	*g = result
 	return nil
 }
@@ -243,15 +257,18 @@ func (p Position) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON reads the position of an array of its longitude, latitude,
 // and altitude, when it has one
 func (p *Position) UnmarshalJSON(data []byte) error {
-	var v []float64
+	// Of pointers, as a null isn't a number, which would otherwise be zero
+	var v []*float64
 	if err := json.Unmarshal(data, &v); err != nil {
 		return err
 	} else if len(v) < 2 || len(v) > 3 {
 		return errs.BadParameter("a position of %d numbers, rather than its longitude, latitude, and altitude", len(v))
+	} else if slices.Contains(v, nil) {
+		return errs.BadParameter("a position of a null, rather than a number")
 	}
-	*p = Position{Long: v[0], Lat: v[1]}
+	*p = Position{Long: *v[0], Lat: *v[1]}
 	if len(v) == 3 {
-		p.Alt = &v[2]
+		p.Alt = v[2]
 	}
 	return nil
 }
