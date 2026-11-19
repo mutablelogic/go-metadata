@@ -9,12 +9,10 @@ import (
 	"bytes"
 	"encoding"
 	"encoding/json"
+	errs "github.com/mutablelogic/go-metadata/internal/errs"
 	"math"
 	"strconv"
 	"strings"
-
-	// Packages
-	metadata "github.com/mutablelogic/go-metadata"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -83,13 +81,13 @@ func Parse(text string) (LatLong, error) {
 	}
 	parts := strings.Split(text, separator)
 	if len(parts) != 2 && len(parts) != 3 {
-		return LatLong{}, metadata.ErrBadParameter.Withf("position %q: expected latitude,longitude or latitude,longitude,altitude", text)
+		return LatLong{}, errs.BadParameter("position %q: expected latitude,longitude or latitude,longitude,altitude", text)
 	}
 	values := make([]float64, len(parts))
 	for i, part := range parts {
 		v, err := strconv.ParseFloat(strings.TrimSpace(part), 64)
 		if err != nil {
-			return LatLong{}, metadata.ErrBadParameter.Withf("position %q: %s: %v", text, partNames[i], err)
+			return LatLong{}, errs.BadParameter("position %q: %s: %v", text, partNames[i], err)
 		}
 		values[i] = v
 	}
@@ -160,15 +158,15 @@ func (ll *LatLong) UnmarshalJSON(data []byte) error {
 	if len(data) > 0 && data[0] == '"' {
 		var text string
 		if err := json.Unmarshal(data, &text); err != nil {
-			return metadata.ErrBadParameter.Withf("position: %v", err)
+			return errs.BadParameter("position: %v", err)
 		}
 		return ll.UnmarshalText([]byte(text))
 	}
 	var v latLongJSON
 	if err := json.Unmarshal(data, &v); err != nil {
-		return metadata.ErrBadParameter.Withf("position: %v", err)
+		return errs.BadParameter("position: %v", err)
 	} else if v.Lat == nil || v.Long == nil {
-		return metadata.ErrBadParameter.With("position: expected lat and long")
+		return errs.BadParameter("position: expected lat and long")
 	}
 	result := LatLong{Lat: *v.Lat, Long: *v.Long, Alt: v.Alt}
 	if err := result.Validate(); err != nil {
@@ -204,11 +202,11 @@ func (ll LatLong) Equal(other LatLong) bool {
 // finite number
 func (ll LatLong) Validate() error {
 	if math.IsNaN(ll.Lat) || ll.Lat < -90 || ll.Lat > 90 {
-		return metadata.ErrBadParameter.Withf("latitude %v: expected -90 to 90", ll.Lat)
+		return errs.BadParameter("latitude %v: expected -90 to 90", ll.Lat)
 	} else if math.IsNaN(ll.Long) || ll.Long < -180 || ll.Long > 180 {
-		return metadata.ErrBadParameter.Withf("longitude %v: expected -180 to 180", ll.Long)
+		return errs.BadParameter("longitude %v: expected -180 to 180", ll.Long)
 	} else if ll.Alt != nil && (math.IsNaN(*ll.Alt) || math.IsInf(*ll.Alt, 0)) {
-		return metadata.ErrBadParameter.Withf("altitude %v: expected a number", *ll.Alt)
+		return errs.BadParameter("altitude %v: expected a number", *ll.Alt)
 	}
 	return nil
 }

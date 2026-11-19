@@ -2,13 +2,11 @@ package geo
 
 import (
 	"fmt"
+	errs "github.com/mutablelogic/go-metadata/internal/errs"
 	"math"
 	"regexp"
 	"strconv"
 	"strings"
-
-	// Packages
-	metadata "github.com/mutablelogic/go-metadata"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -88,17 +86,17 @@ func parseDMS(text string) (LatLong, bool, error) {
 	}
 	lat, err := dmsDegrees(match[1:7], "NS", "latitude")
 	if err != nil {
-		return LatLong{}, true, metadata.ErrBadParameter.Withf("position %q: %v", text, err)
+		return LatLong{}, true, errs.BadParameter("position %q: %v", text, err)
 	}
 	long, err := dmsDegrees(match[7:13], "EW", "longitude")
 	if err != nil {
-		return LatLong{}, true, metadata.ErrBadParameter.Withf("position %q: %v", text, err)
+		return LatLong{}, true, errs.BadParameter("position %q: %v", text, err)
 	}
 	ll := LatLong{Lat: lat, Long: long}
 	if match[13] != "" {
 		alt, err := strconv.ParseFloat(match[13], 64)
 		if err != nil {
-			return LatLong{}, true, metadata.ErrBadParameter.Withf("position %q: altitude: %v", text, err)
+			return LatLong{}, true, errs.BadParameter("position %q: altitude: %v", text, err)
 		}
 		ll = ll.WithAlt(alt)
 	}
