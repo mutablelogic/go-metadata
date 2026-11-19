@@ -82,12 +82,43 @@ func Test_occurrences_002(t *testing.T) {
 	if got := starts(calendar.Occurrences(events, 0)); !reflect.DeepEqual(got, want) {
 		t.Errorf("got %q, want %q", got, want)
 	}
-	if got := calendar.Occurrences(events, 2); len(got) != 2 {
-		t.Errorf("of a max of 2: got %d", len(got))
+	if got := starts(calendar.Occurrences(events, 2)); !reflect.DeepEqual(got, want[:2]) {
+		t.Errorf("of a max of 2, the earliest: got %q, want %q", got, want[:2])
 	}
 
 	// A rule which can't be read is its first
 	if got := calendar.Occurrences([]calendar.Event{{UID: "x", Kind: "event", Start: "2026-11-02T08:00:00Z", RRule: "FREQ=SOMETIMES;COUNT=3"}}, 0); len(got) != 1 {
 		t.Errorf("of a rule which can't be read: got %d", len(got))
+	}
+}
+
+func Test_occurrences_003(t *testing.T) {
+	// The first time an event which repeats forever occurs is excluded, of
+	// its EXDATE, or changed, of another event, which is of its own, or
+	// cancelled
+	start := "2026-11-02T08:00:00Z"
+	for name, test := range map[string]struct {
+		events []calendar.Event
+		want   []string
+	}{
+		"excluded": {[]calendar.Event{{UID: "f", Kind: "event", Start: start, RRule: "FREQ=WEEKLY", ExDate: []string{start}}}, nil},
+		"changed": {[]calendar.Event{
+			{UID: "f", Kind: "event", Start: start, RRule: "FREQ=WEEKLY"},
+			{UID: "f", Kind: "event", Start: "2026-11-02T10:00:00Z", RecurrenceID: start},
+		}, []string{"f " + start + " 2026-11-02T10:00:00Z"}},
+		"cancelled": {[]calendar.Event{
+			{UID: "f", Kind: "event", Start: start, RRule: "FREQ=WEEKLY"},
+			{UID: "f", Kind: "event", Start: start, RecurrenceID: start, Status: "CANCELLED"},
+		}, nil},
+	} {
+		if got := starts(calendar.Occurrences(test.events, 0)); !reflect.DeepEqual(got, test.want) {
+			t.Errorf("%s: got %q, want %q", name, got, test.want)
+		}
+	}
+
+	// A task which has a start, and is due, is of when it's due
+	got := calendar.Occurrences([]calendar.Event{{UID: "t", Kind: "task", Start: "2026-11-01", Due: "2026-11-21"}}, 0)
+	if len(got) != 1 || !got[0].Start.Time.Equal(time.Date(2026, 11, 21, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("a task is of when it's due: got %+v", got)
 	}
 }

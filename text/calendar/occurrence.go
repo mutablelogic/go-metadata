@@ -33,9 +33,9 @@ type Occurrence struct {
 ////////////////////////////////////////////////////////////////////////////////
 // PUBLIC FUNCTIONS
 
-// Occurrences returns the times the events occur, in order, of up to max of
-// them, or every one, when it's zero: an event, or a task, which starts when
-// it's due, of its own, and each time an event which repeats occurs, of a
+// Occurrences returns the times the events occur, in order, the earliest
+// max of them, or every one, when it's zero: an event, or a task, which
+// starts when it's due, or else of its start, of its own, and each time an event which repeats occurs, of a
 // rule which ends, of its UNTIL, or COUNT, without the starts it excludes,
 // and those which another of the events, of the same UID, changes, of its
 // recurrence ID, which is one of its own. An event which repeats forever,
@@ -52,11 +52,7 @@ func Occurrences(events []Event, max int) []Occurrence {
 		}
 	}
 	var result []Occurrence
-	full := func() bool { return max > 0 && len(result) >= max }
 	for _, e := range events {
-		if full() {
-			break
-		}
 		start, end, ok := eventTimes(e)
 		if !ok || e.UID == "" || e.NoYear || strings.EqualFold(e.Status, "CANCELLED") {
 			continue
@@ -69,17 +65,14 @@ func Occurrences(events []Event, max int) []Occurrence {
 
 		// Each time an event which repeats occurs, of its rule, when it ends,
 		// and its first, when it doesn't
+		// of its first, when it doesn't, without those it excludes, and those
+		// which are changed
 		starts, bounded := expand(e, start)
 		if !bounded {
-			occurrence.RecurrenceID = format(start)
-			result = append(result, occurrence)
-			continue
+			starts = []ical.Time{start}
 		}
 		length := end.Time.Sub(start.Time)
 		for _, at := range starts {
-			if full() {
-				break
-			}
 			id := format(at)
 			if changed[e.UID+"\x00"+id] || slices.Contains(e.ExDate, id) {
 				continue
@@ -92,6 +85,9 @@ func Occurrences(events []Event, max int) []Occurrence {
 		}
 	}
 	slices.SortStableFunc(result, func(a, b Occurrence) int { return a.Start.Time.Compare(b.Start.Time) })
+	if max > 0 && len(result) > max {
+		result = result[:max]
+	}
 	return result
 }
 
@@ -103,11 +99,11 @@ func Occurrences(events []Event, max int) []Occurrence {
 const maxRepeats = 1000
 
 // eventTimes returns when an event starts, and ends, which is zero when it
-// has no end, or of a task, which starts when it's due, unless it has a
+// has no end, or of a task, which starts when it's due, or else of its
 // start, or false when it has no start, or its times can't be read
 func eventTimes(e Event) (ical.Time, ical.Time, bool) {
 	value := e.Start
-	if value == "" && e.Kind == string(ical.KindTask) {
+	if e.Kind == string(ical.KindTask) && e.Due != "" {
 		value = e.Due
 	}
 	start, ok := parseWhen(value)
