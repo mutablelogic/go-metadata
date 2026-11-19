@@ -60,6 +60,7 @@ require (
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/mutablelogic/go-pg v1.4.4 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
+	github.com/teambition/rrule-go v1.8.2 // indirect
 	github.com/xdg-go/stringprep v1.0.4 // indirect
 	github.com/xo/terminfo v1.2.0 // indirect
 	github.com/yuin/goldmark v1.8.6 // indirect
