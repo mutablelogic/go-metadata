@@ -6,12 +6,11 @@ package rational
 import (
 	"encoding"
 	"encoding/json"
+	errs "github.com/mutablelogic/go-metadata/internal/errs"
 	"math/big"
 	"strconv"
 	"strings"
-
 	// Packages
-	metadata "github.com/mutablelogic/go-metadata"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -52,9 +51,9 @@ func New(numerator, denominator int64) Rational {
 func Parse(text string) (Rational, error) {
 	r, ok := new(big.Rat).SetString(strings.TrimSpace(text))
 	if !ok {
-		return Rational{}, metadata.ErrBadParameter.Withf("rational %q: not a number", text)
+		return Rational{}, errs.BadParameter("rational %q: not a number", text)
 	} else if !r.Num().IsInt64() || !r.Denom().IsInt64() {
-		return Rational{}, metadata.ErrBadParameter.Withf("rational %q: too large", text)
+		return Rational{}, errs.BadParameter("rational %q: too large", text)
 	}
 	return Rational{Numerator: r.Num().Int64(), Denominator: r.Denom().Int64()}, nil
 }

@@ -1,12 +1,10 @@
 package geo
 
 import (
+	errs "github.com/mutablelogic/go-metadata/internal/errs"
 	"regexp"
 	"strconv"
 	"strings"
-
-	// Packages
-	metadata "github.com/mutablelogic/go-metadata"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -26,21 +24,21 @@ var reISO6709 = regexp.MustCompile(`^([+-]\d{1,2}(?:\.\d+)?)([+-]\d{1,3}(?:\.\d+
 func ParseISO6709(text string) (LatLong, error) {
 	match := reISO6709.FindStringSubmatch(strings.TrimSpace(text))
 	if match == nil {
-		return LatLong{}, metadata.ErrBadParameter.Withf("position %q: expected ISO 6709", text)
+		return LatLong{}, errs.BadParameter("position %q: expected ISO 6709", text)
 	}
 	lat, err := strconv.ParseFloat(match[1], 64)
 	if err != nil {
-		return LatLong{}, metadata.ErrBadParameter.Withf("position %q: latitude: %v", text, err)
+		return LatLong{}, errs.BadParameter("position %q: latitude: %v", text, err)
 	}
 	long, err := strconv.ParseFloat(match[2], 64)
 	if err != nil {
-		return LatLong{}, metadata.ErrBadParameter.Withf("position %q: longitude: %v", text, err)
+		return LatLong{}, errs.BadParameter("position %q: longitude: %v", text, err)
 	}
 	ll := LatLong{Lat: lat, Long: long}
 	if match[3] != "" {
 		alt, err := strconv.ParseFloat(match[3], 64)
 		if err != nil {
-			return LatLong{}, metadata.ErrBadParameter.Withf("position %q: altitude: %v", text, err)
+			return LatLong{}, errs.BadParameter("position %q: altitude: %v", text, err)
 		}
 		ll = ll.WithAlt(alt)
 	}
