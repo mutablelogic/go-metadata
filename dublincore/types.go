@@ -45,6 +45,7 @@ const (
 	KindSoftware     = "software"     // Software, such as an application or a library
 	KindSpreadsheet  = "spreadsheet"  // A spreadsheet
 	KindSubtitles    = "subtitles"    // Subtitles of a video, such as a SubRip file
+	KindTask         = "task"         // A task, such as a to-do, which is a calendar of one
 	KindVideo        = "video"        // A video
 	KindWebPage      = "webpage"      // A web page
 	KindUnknown      = "unknown"      // A file which nothing can read, which has no DCMI type
@@ -73,6 +74,7 @@ var kindTypes = map[string]string{
 	KindSoftware:     TypeSoftware,
 	KindSpreadsheet:  TypeDataset,
 	KindSubtitles:    TypeText,
+	KindTask:         TypeEvent,
 	KindVideo:        TypeMovingImage,
 	KindWebPage:      TypeText,
 }
