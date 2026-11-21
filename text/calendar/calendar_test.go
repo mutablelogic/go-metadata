@@ -758,6 +758,10 @@ func Test_calendar_kind(t *testing.T) {
 		{"event", event, "event", "Event"},
 		{"tasks", append(slices.Clone(todo), "BEGIN:VTODO", "UID:other@example.com", "SUMMARY:Bread", "END:VTODO"), "calendar", "Event"},
 		{"mixed", append(slices.Clone(todo), event...), "calendar", "Event"},
+		// An event without a start isn't decoded, but the calendar is still
+		// of a task and an event
+		{"mixed without a start", append(slices.Clone(todo), "BEGIN:VEVENT", "UID:nostart@example.com", "SUMMARY:When?", "END:VEVENT"), "calendar", "Event"},
+		{"event without a start", []string{"BEGIN:VEVENT", "UID:nostart@example.com", "SUMMARY:When?", "END:VEVENT"}, "calendar", "Event"},
 	} {
 		_, meta, err := metadata.Extract(context.Background(), named{strings.NewReader(ics(tc.lines...)), tc.name + ".ics"}, metadata.WithContentType("text/calendar"))
 		if err != nil {

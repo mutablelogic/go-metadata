@@ -356,6 +356,27 @@ func Test_contenttype_000(t *testing.T) {
 			t.Errorf("expected %q, got %q", want, got)
 		}
 	}
+	// Of the components which were decoded, including an event without a
+	// start, which isn't in Events
+	c := decode(t, "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VTODO\r\nUID:t@example.com\r\nEND:VTODO\r\nBEGIN:VEVENT\r\nUID:e@example.com\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n")
+	if len(c.Events) != 1 {
+		t.Fatalf("expected one task, got %d", len(c.Events))
+	}
+	if events, tasks := c.Components(); events != 1 || tasks != 1 {
+		t.Errorf("expected one event and one task, got %d and %d", events, tasks)
+	}
+	if got := c.ContentType(); got != ical.ContentType {
+		t.Errorf("expected %q, got %q", ical.ContentType, got)
+	}
+	// Of its Events as they are now, when they're changed
+	c = decode(t, "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:e@example.com\r\nDTSTART:20261031T090000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n")
+	if got := c.ContentType(); got != ical.EventType {
+		t.Errorf("expected %q, got %q", ical.EventType, got)
+	}
+	c.Events[0].Kind = ical.KindTask
+	if got := c.ContentType(); got != ical.TaskType {
+		t.Errorf("expected %q after it's a task, got %q", ical.TaskType, got)
+	}
 	if ical.TaskType != "text/calendar; component=VTODO" || ical.EventType != "text/calendar; component=VEVENT" {
 		t.Errorf("unexpected types %q %q", ical.TaskType, ical.EventType)
 	}

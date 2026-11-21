@@ -110,8 +110,11 @@ func init() {
 		if err != nil {
 			return metadata.KindMetadata(dc.KindCalendar), err
 		}
+		// Of its components, including those which aren't decoded, such as
+		// an event without a start, so a calendar of a task and such an
+		// event isn't a task
 		kind := dc.KindCalendar
-		if len(c.Events) == 1 {
+		if events, tasks := c.Components(); events+tasks == 1 && len(c.Events) == 1 {
 			switch c.Events[0].Kind {
 			case ical.KindEvent:
 				kind = dc.KindEvent
