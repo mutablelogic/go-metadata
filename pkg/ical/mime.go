@@ -51,13 +51,11 @@ func (c *Calendar) ContentType() string {
 	}
 }
 
-// Components returns how many events and tasks the calendar has: of the
-// VEVENTs and VTODOs it was decoded of, including those which aren't in
-// Events, such as an event without a start, or else of its Events
+// Components returns how many events and tasks the calendar has: those of
+// its Events, as they are now, and those it was decoded of which aren't in
+// Events, such as an event without a start
 func (c *Calendar) Components() (events, tasks int) {
-	if c.events > 0 || c.tasks > 0 {
-		return c.events, c.tasks
-	}
+	events, tasks = c.dropped.events, c.dropped.tasks
 	for _, e := range c.Events {
 		if e.Kind == KindTask {
 			tasks++
