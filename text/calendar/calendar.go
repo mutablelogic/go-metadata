@@ -103,16 +103,21 @@ var (
 // LIFECYCLE
 
 func init() {
-	// The events of a calendar, and its kind, which is an event when it's
-	// a calendar of one
+	// The events of a calendar, and its kind, which is an event, or a
+	// task, when it's a calendar of one
 	metadata.AddHandler(reContentType, "ical", func(_ context.Context, r io.Reader, _ *metadata.Opts) ([]metadata.Metadata, error) {
 		c, err := ical.Decode(io.LimitReader(r, maxSize))
 		if err != nil {
 			return metadata.KindMetadata(dc.KindCalendar), err
 		}
 		kind := dc.KindCalendar
-		if len(c.Events) == 1 && c.Events[0].Kind == ical.KindEvent {
-			kind = dc.KindEvent
+		if len(c.Events) == 1 {
+			switch c.Events[0].Kind {
+			case ical.KindEvent:
+				kind = dc.KindEvent
+			case ical.KindTask:
+				kind = dc.KindTask
+			}
 		}
 		events := make([]Event, len(c.Events))
 		for i, e := range c.Events {

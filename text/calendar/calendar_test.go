@@ -742,3 +742,32 @@ func Test_task_000(t *testing.T) {
 		}
 	}
 }
+
+func Test_calendar_kind(t *testing.T) {
+	// A calendar of one event is an event, of one task is a task, and
+	// otherwise it's a calendar
+	todo := []string{"BEGIN:VTODO", "UID:task@example.com", "SUMMARY:Milk", "END:VTODO"}
+	event := []string{"BEGIN:VEVENT", "UID:event@example.com", "DTSTART:20261031T090000Z", "SUMMARY:Meeting", "END:VEVENT"}
+	for _, tc := range []struct {
+		name  string
+		lines []string
+		kind  string
+		typ   string
+	}{
+		{"task", todo, "task", "Event"},
+		{"event", event, "event", "Event"},
+		{"tasks", append(slices.Clone(todo), "BEGIN:VTODO", "UID:other@example.com", "SUMMARY:Bread", "END:VTODO"), "calendar", "Event"},
+		{"mixed", append(slices.Clone(todo), event...), "calendar", "Event"},
+	} {
+		_, meta, err := metadata.Extract(context.Background(), named{strings.NewReader(ics(tc.lines...)), tc.name + ".ics"}, metadata.WithContentType("text/calendar"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := map[string]any{}
+		for _, m := range meta {
+			got[m.NS()+":"+m.Key()] = m.Any()
+		}
+		equal(t, tc.name+" kind", tc.kind, got["metadata:kind"])
+		equal(t, tc.name+" type", tc.typ, got["dc:type"])
+	}
+}
