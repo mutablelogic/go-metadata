@@ -38,16 +38,9 @@ func init() {
 
 // ContentType returns the content type of the calendar: TaskType when its
 // components are all tasks, EventType when they're all events, or else
-// ContentType, when they're both, or it has none
+// ContentType, when they're both, or it has none (see Components)
 func (c *Calendar) ContentType() string {
-	var tasks, events int
-	for _, e := range c.Events {
-		if e.Kind == KindTask {
-			tasks++
-		} else {
-			events++
-		}
-	}
+	events, tasks := c.Components()
 	switch {
 	case tasks > 0 && events == 0:
 		return TaskType
@@ -56,4 +49,21 @@ func (c *Calendar) ContentType() string {
 	default:
 		return ContentType
 	}
+}
+
+// Components returns how many events and tasks the calendar has: of the
+// VEVENTs and VTODOs it was decoded of, including those which aren't in
+// Events, such as an event without a start, or else of its Events
+func (c *Calendar) Components() (events, tasks int) {
+	if c.events > 0 || c.tasks > 0 {
+		return c.events, c.tasks
+	}
+	for _, e := range c.Events {
+		if e.Kind == KindTask {
+			tasks++
+		} else {
+			events++
+		}
+	}
+	return events, tasks
 }

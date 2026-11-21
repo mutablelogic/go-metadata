@@ -22,6 +22,10 @@ type Calendar struct {
 	TZ          string   `json:"tz,omitempty"`          // Its zone, such as Europe/Berlin
 	Image       *Image   `json:"image,omitempty"`       // Its image, embedded or linked
 	Events      []*Event `json:"events,omitempty"`      // Its events and tasks
+
+	// How many VEVENTs and VTODOs it was decoded of, including those which
+	// aren't in Events, such as an event without a start
+	events, tasks int
 }
 
 // Kind is the kind of an event: an event, or a task

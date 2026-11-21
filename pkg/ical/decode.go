@@ -70,6 +70,11 @@ func Decode(r io.Reader) (*Calendar, error) {
 			}
 		case "END":
 			if len(stack) == 2 && stack[0] == "VCALENDAR" && (stack[1] == "VEVENT" || stack[1] == "VTODO") {
+				if stack[1] == "VTODO" {
+					calendar.tasks++
+				} else {
+					calendar.events++
+				}
 				if e, ok := parseEvent(stack[1], event); ok {
 					calendar.Events = append(calendar.Events, e)
 				}
