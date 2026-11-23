@@ -562,8 +562,9 @@ var addKindHandler = sync.OnceFunc(func() {
 
 func Test_metadata_016(t *testing.T) {
 	// The type and kind of the input are only those a handler returns, in
-	// the requested namespaces, and not from its content type, and an input
-	// no handler reads is of an unknown kind, with no type, and no hints
+	// the requested namespaces, of which metadata is every namespace, and not
+	// from its content type, and an input no handler reads is of an unknown
+	// kind, with no type, and no hints
 	addKindHandler()
 	for _, test := range []struct {
 		contentType string
@@ -574,7 +575,7 @@ func Test_metadata_016(t *testing.T) {
 		{"video/mp4", nil, map[string]string{"metadata:hint": "", "metadata:kind": "unknown"}},
 		{"application/x-test-kind", nil, map[string]string{"dc:type": "InteractiveResource", "metadata:kind": "form"}},
 		{"application/x-test-kind", []Option{WithNamespace("dc")}, map[string]string{"dc:type": "InteractiveResource"}},
-		{"application/x-test-kind", []Option{WithNamespace("metadata")}, map[string]string{"metadata:kind": "form"}},
+		{"application/x-test-kind", []Option{WithNamespace("metadata")}, map[string]string{"dc:type": "InteractiveResource", "metadata:kind": "form"}},
 	} {
 		_, meta, _ := Extract(context.Background(), bytes.NewReader(nil), append(test.opts, WithContentType(test.contentType))...)
 		got := map[string]string{}
@@ -916,5 +917,58 @@ func Test_metadata_tags(t *testing.T) {
 	}
 	if meta := TagMetadata("", "1bad"); meta != nil {
 		t.Fatalf("expected no tags, got %v", meta)
+	}
+}
+
+// addReservedHandler registers a handler which returns exif:make, always,
+// and artwork:cover, and markdown:body, only when they're requested
+var addReservedHandler = sync.OnceFunc(func() {
+	AddHandler(regexp.MustCompile(`^application/x-test-reserved$`), "test-reserved", func(_ context.Context, _ io.Reader, o *Opts) ([]Metadata, error) {
+		result := []Metadata{meta.New("exif", "make", "Acme")}
+		if o.HasNamespace(ArtworkNamespace) {
+			result = append(result, meta.New(ArtworkNamespace, "cover", "image/png"))
+		}
+		if o.HasNamespace(MarkdownNamespace) {
+			result = append(result, meta.New(MarkdownNamespace, "body", "# Acme"))
+		}
+		return result, nil
+	}, "exif", ArtworkNamespace, MarkdownNamespace)
+})
+
+func Test_metadata_reserved(t *testing.T) {
+	// The metadata, artwork and markdown namespaces are requests: metadata
+	// is every namespace of metadata, which is what's returned without a
+	// namespace, and artwork, and markdown, are returned as well, only when
+	// they're requested, and any other namespace is only that one
+	addReservedHandler()
+	for _, test := range []struct {
+		namespaces []string
+		want       []string
+	}{
+		{nil, []string{"exif:make"}},
+		{[]string{MetadataNamespace}, []string{"exif:make"}},
+		{[]string{MetadataNamespace, ArtworkNamespace}, []string{"artwork:cover", "exif:make"}},
+		{[]string{MetadataNamespace, MarkdownNamespace}, []string{"exif:make", "markdown:body"}},
+		{[]string{ArtworkNamespace}, []string{"artwork:cover"}},
+		{[]string{MarkdownNamespace}, []string{"markdown:body"}},
+		{[]string{"exif"}, []string{"exif:make"}},
+		{[]string{"exif", ArtworkNamespace}, []string{"artwork:cover", "exif:make"}},
+	} {
+		opts := []Option{WithContentType("application/x-test-reserved")}
+		if test.namespaces != nil {
+			opts = append(opts, WithNamespace(test.namespaces...))
+		}
+		_, meta, err := Extract(context.Background(), bytes.NewReader(nil), opts...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got []string
+		for _, m := range meta {
+			got = append(got, m.NS()+string(Separator)+m.Key())
+		}
+		slices.Sort(got)
+		if !slices.Equal(got, test.want) {
+			t.Errorf("%v: expected %v, got %v", test.namespaces, test.want, got)
+		}
 	}
 }
