@@ -30,6 +30,7 @@ type Reader struct {
 	scanner *bufio.Scanner
 	pending string
 	more    bool
+	started bool // the first line was read, whose byte order mark is removed
 }
 
 // Writer writes content lines, each ending with CRLF, and folded so no line
@@ -45,6 +46,9 @@ type Writer struct {
 const (
 	// lineLength is the most octets of a line, before it's folded
 	lineLength = 75
+
+	// bom is the byte order mark of UTF-8, which some files start with
+	bom = "\ufeff"
 )
 
 var (
@@ -146,12 +150,16 @@ func Split(value string, separator rune) []string {
 
 // Next returns the next content line, unfolded, as a line which continues
 // on the next starts with a space or tab, which is removed, or io.EOF when
-// there are no more. Lines which are empty aren't returned.
+// there are no more. Lines which are empty aren't returned, and a byte
+// order mark which the first line starts with is removed.
 func (r *Reader) Next() (string, error) {
 	line := r.pending
 	r.pending = ""
 	for r.scanner.Scan() {
 		text := strings.TrimRight(r.scanner.Text(), "\r")
+		if !r.started {
+			text, r.started = strings.TrimPrefix(text, bom), true
+		}
 		switch {
 		case strings.HasPrefix(text, " ") || strings.HasPrefix(text, "\t"):
 			line += text[1:]

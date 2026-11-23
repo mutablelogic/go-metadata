@@ -217,3 +217,10 @@ func Test_decode_002(t *testing.T) {
 		t.Error("expected an error")
 	}
 }
+
+func Test_decode_bom(t *testing.T) {
+	// A contact which starts with a byte order mark is decoded
+	if cards, err := vcard.Decode(strings.NewReader("\xef\xbb\xbfBEGIN:VCARD\r\nVERSION:4.0\r\nFN:Ada\r\nEND:VCARD\r\n")); err != nil || len(cards) != 1 || cards[0].FN != "Ada" {
+		t.Errorf("expected Ada, got %v %v", cards, err)
+	}
+}
