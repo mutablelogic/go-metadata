@@ -268,7 +268,16 @@ func WithTMDBEpisode(show, season, episode uint64) Option {
 	}
 }
 
-// Return only the metadata from the given namespaces.
+// WithNamespace returns only the metadata of the namespaces, such as exif,
+// of the handlers which can produce them, which is quicker than all of them.
+// Three namespaces are reserved, as they're requests, rather than one
+// namespace: metadata, which is every namespace of metadata, of every
+// handler, such as exif, dc and metadata:kind, artwork, which is the images
+// which represent the input, and markdown, which is its content, which
+// handlers only produce when they're requested, as they're slow to. So
+// WithNamespace(MetadataNamespace, ArtworkNamespace) is all the metadata,
+// and the artwork. Without it, it's every namespace of metadata, as of
+// MetadataNamespace.
 func WithNamespace(ns ...string) Option {
 	return func(o *Opts) error {
 		for _, n := range ns {

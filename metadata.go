@@ -359,9 +359,10 @@ func Extract(parent context.Context, r io.Reader, opts ...Option) (_ string, _ [
 	}
 
 	// Narrow down to the handlers that can produce one of the requested
-	// namespaces. If none, return the title from the name of r
+	// namespaces, unless the metadata namespace is requested, which is all
+	// of them. If none, return the title from the name of r
 	var selected []entry
-	if len(o.namespaces) > 0 {
+	if len(o.namespaces) > 0 && !o.HasNamespace(MetadataNamespace) {
 		selected = selectEntries(entries, o.HasNamespace)
 	} else {
 		selected = entries
@@ -528,7 +529,8 @@ func getEntries(contentType string) []entry {
 
 // result returns the metadata from the handlers, with the title from the
 // name of r, when no handler returned a title, in the requested namespaces,
-// as a handler may return others
+// as a handler may return others, which are every namespace of metadata,
+// apart from artwork and markdown, when the metadata namespace is requested
 func (o *Opts) result(r io.Reader, meta []Metadata) []Metadata {
 	if named, ok := r.(NamedReader); ok {
 		if title := nameTitle(named.Name()); title != "" && !slices.ContainsFunc(meta, has(dublincore.Namespace, dublincore.Title)) {
@@ -536,8 +538,22 @@ func (o *Opts) result(r io.Reader, meta []Metadata) []Metadata {
 		}
 	}
 	return slices.DeleteFunc(meta, func(m Metadata) bool {
-		return m == nil || (len(o.namespaces) > 0 && !o.HasNamespace(m.NS()))
+		return m == nil || (len(o.namespaces) > 0 && !o.wants(m.NS()))
 	})
+}
+
+// wants returns true when the metadata of the namespace is returned: it's
+// requested, or it's metadata, which isn't artwork, or markdown, as they're
+// only returned when they're requested, and the metadata namespace is
+func (o *Opts) wants(ns string) bool {
+	switch {
+	case o.HasNamespace(ns):
+		return true
+	case strings.EqualFold(ns, ArtworkNamespace), strings.EqualFold(ns, MarkdownNamespace):
+		return false
+	default:
+		return o.HasNamespace(MetadataNamespace)
+	}
 }
 
 // combine returns the metadata of the handlers' results, of those with the
