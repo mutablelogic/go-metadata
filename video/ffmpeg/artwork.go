@@ -35,6 +35,13 @@ const (
 
 	// maxThumbnails is the most frames of a video which are its artwork
 	maxThumbnails = 6
+
+	// maxSamples is how many frames are sampled, at most, of which the
+	// thumbnails' scenes are found, which is eight of each thumbnail,
+	// rather than go-media's 300, as each is a seek, which of a file which
+	// is read over a network, such as of a bucket, or Drive, reads a block
+	// of it, so a film isn't read nearly whole, for six thumbnails
+	maxSamples = 48
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -93,7 +100,7 @@ func coverArtwork(pictures []gomedia.Metadata, o *metadata.Opts) []metadata.Meta
 // in time order, or nothing when it has no video stream, or its frames can't
 // be decoded
 func thumbnailArtwork(ctx context.Context, r io.Reader, o *metadata.Opts) ([]metadata.Metadata, error) {
-	th, err := thumbnailer.NewReader(r, thumbnailer.WithSize(0, 0))
+	th, err := thumbnailer.NewReader(r, thumbnailer.WithSize(0, 0), thumbnailer.WithMaxSamples(maxSamples))
 	if err != nil {
 		return nil, nil
 	}
