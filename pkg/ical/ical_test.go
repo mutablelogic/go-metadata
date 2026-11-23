@@ -386,3 +386,12 @@ func Test_contenttype_000(t *testing.T) {
 		t.Errorf("unexpected %q %v %v", mediaType, params, err)
 	}
 }
+
+func Test_decode_bom(t *testing.T) {
+	// A calendar which starts with a byte order mark, as some feeds do, is
+	// decoded
+	c := decode(t, "\xef\xbb\xbf"+calendar("X-WR-CALNAME:Holidays", "BEGIN:VEVENT", "UID:a", "DTSTART;VALUE=DATE:20261225", "SUMMARY:Christmas", "END:VEVENT"))
+	if c.Name != "Holidays" || len(c.Events) != 1 || c.Events[0].Summary != "Christmas" {
+		t.Errorf("unexpected %+v", c)
+	}
+}

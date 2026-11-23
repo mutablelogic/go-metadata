@@ -72,3 +72,14 @@ func Test_contentline_002(t *testing.T) {
 		t.Error("expected no property")
 	}
 }
+
+func Test_contentline_003(t *testing.T) {
+	// A byte order mark which the first line starts with is removed, and
+	// one which another line starts with isn't
+	var lines []string
+	if err := contentline.Unfold(strings.NewReader("\ufeffBEGIN:VCALENDAR\r\n\ufeffX:1\r\nEND:VCALENDAR\r\n"), 1<<20, func(line string) error { lines = append(lines, line); return nil }); err != nil {
+		t.Fatal(err)
+	} else if !reflect.DeepEqual(lines, []string{"BEGIN:VCALENDAR", "\ufeffX:1", "END:VCALENDAR"}) {
+		t.Errorf("unexpected %q", lines)
+	}
+}
